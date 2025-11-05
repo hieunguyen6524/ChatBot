@@ -1,12 +1,14 @@
 import { AnimatePresence } from "framer-motion";
 import MessageItem from "./MessageItem";
-import type { Message } from "@/types/message.type";
+import type { Message } from "@/types/chat.type";
 import { useEffect, useRef, useState } from "react";
 
-const MessageList: React.FC<{
+type MessageListProps = {
   messages: Message[];
   onSpeak: (text: string) => void;
-}> = ({ messages, onSpeak }) => {
+};
+
+function MessageList({ messages, onSpeak }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -36,6 +38,6 @@ const MessageList: React.FC<{
       </AnimatePresence>
     </div>
   );
-};
+}
 
 export default MessageList;

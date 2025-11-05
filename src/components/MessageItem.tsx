@@ -1,7 +1,10 @@
-import type { Message } from "@/types/message.type";
+import type { Message } from "@/types/chat.type";
 import { motion } from "framer-motion";
 import { Volume2 } from "lucide-react";
-import Avatar from "./Avatar";
+import CustomAvatar from "./CustomAvatar";
+import { MessageTable } from "./MessageTable";
+import { MessageChart } from "./MessageChart";
+import { MessageCard } from "./MessageCard";
 
 type MessageItemProps = {
   message: Message;
@@ -18,23 +21,39 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
       exit={{ opacity: 0 }}
       className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} mb-4`}
     >
-      <Avatar role={message.role} />
+      <CustomAvatar role={message.role} />
       <div
         className={`flex flex-col ${
           isUser ? "items-end" : "items-start"
         } max-w-[70%]`}
       >
-        <div
-          className={`rounded-2xl px-4 py-2 ${
-            isUser
-              ? "bg-blue-500 text-white"
-              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          }`}
-        >
-          <p className="whitespace-pre-wrap wrap-break-word">
-            {message.content}
-          </p>
-        </div>
+        {/* Text message */}
+        {(!message.type || message.type === "text") && (
+          <div
+            className={`rounded-2xl px-4 py-2 ${
+              isUser
+                ? "bg-blue-500 text-white"
+                : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            }`}
+          >
+            <p className="whitespace-pre-wrap wrap-break-word">
+              {message.content}
+            </p>
+          </div>
+        )}
+
+        {/* Table message */}
+        {message.type === "table" && message.data && (
+          <MessageCard title={message.data.title} description={message.content}>
+            <MessageTable data={message.data} />
+          </MessageCard>
+        )}
+
+        {/* Chart message */}
+        {message.type === "chart" && message.data && (
+          <MessageChart data={message.data} />
+        )}
+
         <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
           <span>
             {message.timestamp.toLocaleTimeString("vi-VN", {
