@@ -1,18 +1,11 @@
 import type { Message } from "@/types/chat.type";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
+import { useChatStore } from "@/store/chatStore";
 
 export const useChat = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        "Xin chào! Tôi có thể hiển thị dữ liệu dạng bảng và biểu đồ. Hãy thử hỏi tôi!",
-      timestamp: new Date(),
-      status: "success",
-      type: "text",
-    },
-  ]);
+  const messages = useChatStore((s) => s.messages);
+  const append = useChatStore((s) => s.append);
+  const replaceMessage = useChatStore((s) => s.replaceMessage);
 
   const sendMessage = useCallback(async (content: string) => {
     const userMsg: Message = {
@@ -24,14 +17,10 @@ export const useChat = () => {
       type: "text",
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    append(userMsg);
 
     setTimeout(() => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === userMsg.id ? { ...m, status: "success" as const } : m
-        )
-      );
+      replaceMessage(userMsg.id, (m) => ({ ...m, status: "success" as const }));
 
       // Mock AI response with different types
       setTimeout(() => {
@@ -124,10 +113,10 @@ export const useChat = () => {
           };
         }
 
-        setMessages((prev) => [...prev, aiMsg]);
+        append(aiMsg);
       }, 500);
     }, 1000);
-  }, []);
+  }, [append, replaceMessage]);
 
   return { messages, sendMessage };
 };

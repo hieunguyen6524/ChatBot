@@ -1,6 +1,16 @@
-import React, { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Maximize2, Send } from "lucide-react";
+import {
+  MessageCircle,
+  X,
+  Maximize2,
+  Send,
+  Smile,
+  Paperclip,
+} from "lucide-react";
+import MiniMessageItem from "./MiniMessageItem";
+import { useChat } from "@/hooks/useChat";
 
 interface ChatBubbleProps {
   isOpen: boolean;
@@ -8,36 +18,55 @@ interface ChatBubbleProps {
   onMaximize: () => void;
 }
 
+// Mini version của MessageItem
+
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
   isOpen,
   onToggle,
   onMaximize,
 }) => {
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Xin chào! Tôi có thể giúp gì cho bạn?", isBot: true },
-  ]);
+  const { messages, sendMessage } = useChat();
+
   const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSend = () => {
-    if (input.trim()) {
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now(), text: input, isBot: false },
-      ]);
-      setInput("");
-
-      // Mock bot response
-      setTimeout(() => {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now() + 1,
-            text: "Cảm ơn bạn! Để có trải nghiệm đầy đủ, hãy mở full chat.",
-            isBot: true,
-          },
-        ]);
-      }, 500);
+  // Auto scroll to bottom
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
+  }, [messages]);
+
+  const handleSend = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    // send via shared hook (store will update both mini and full chat)
+    sendMessage(trimmed);
+
+    setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+
+    // local typing indicator for mini UI
+    setIsTyping(true);
+    setTimeout(() => setIsTyping(false), 1500);
+  }, [input, sendMessage]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 80) + "px";
   };
 
   return (
@@ -50,7 +79,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-24 right-6 w-96 h-[500px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-40 border border-gray-200 dark:border-gray-700"
+            className="fixed bottom-24 right-6 w-96 h-[550px] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-40 border border-gray-200 dark:border-gray-700"
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 flex items-center justify-between">
@@ -64,66 +93,117 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={onMaximize}
                   className="p-2 hover:bg-white/20 rounded-full transition-colors"
                   aria-label="Mở rộng"
                 >
                   <Maximize2 className="w-5 h-5 text-white" />
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={onToggle}
                   className="p-2 hover:bg-white/20 rounded-full transition-colors"
                   aria-label="Đóng"
                 >
                   <X className="w-5 h-5 text-white" />
-                </button>
+                </motion.button>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((msg) => (
+            <div className="flex-1 overflow-y-auto p-4">
+              {messages.map((message) => (
+                <MiniMessageItem key={message.id} message={message} />
+              ))}
+
+              {/* Typing Indicator */}
+              {isTyping && (
                 <motion.div
-                  key={msg.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${
-                    msg.isBot ? "justify-start" : "justify-end"
-                  }`}
+                  className="flex justify-start mb-3"
                 >
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                      msg.isBot
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                        : "bg-blue-500 text-white"
-                    }`}
-                  >
-                    <p className="text-sm">{msg.text}</p>
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3">
+                    <div className="flex gap-1">
+                      <motion.div
+                        className="w-2 h-2 bg-gray-400 rounded-full"
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{
+                          duration: 0.6,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                      />
+                      <motion.div
+                        className="w-2 h-2 bg-gray-400 rounded-full"
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{
+                          duration: 0.6,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: 0.2,
+                        }}
+                      />
+                      <motion.div
+                        className="w-2 h-2 bg-gray-400 rounded-full"
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{
+                          duration: 0.6,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: 0.4,
+                        }}
+                      />
+                    </div>
                   </div>
                 </motion.div>
-              ))}
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSend()}
-                  placeholder="Nhập tin nhắn..."
-                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full outline-none text-sm text-gray-900 dark:text-gray-100"
-                />
-                <button
+            {/* Input Area */}
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 flex items-end gap-2 bg-gray-100 dark:bg-gray-800 rounded-3xl px-3 py-2">
+                  <button
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="Emoji"
+                  >
+                    <Smile className="w-4 h-4 text-gray-500" />
+                  </button>
+
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={handleInput}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Nhập tin nhắn..."
+                    className="flex-1 bg-transparent resize-none outline-none max-h-[80px] py-1 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500"
+                    rows={1}
+                  />
+
+                  <button
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    aria-label="Đính kèm"
+                  >
+                    <Paperclip className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
                   onClick={handleSend}
                   disabled={!input.trim()}
-                  className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   aria-label="Gửi"
                 >
-                  <Send className="w-5 h-5" />
-                </button>
+                  <Send className="w-4 h-4" />
+                </motion.button>
               </div>
             </div>
           </motion.div>
@@ -163,13 +243,16 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
         </AnimatePresence>
 
         {/* Notification Badge */}
-        {!isOpen && (
+        {!isOpen && messages.length > 1 && (
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold"
           >
-            1
+            {Math.min(
+              messages.filter((m) => m.role === "assistant").length - 1,
+              9
+            )}
           </motion.div>
         )}
       </motion.button>
