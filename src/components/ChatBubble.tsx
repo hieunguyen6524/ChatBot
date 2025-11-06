@@ -25,12 +25,13 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   onToggle,
   onMaximize,
 }) => {
-  const { messages, sendMessage } = useChat();
+  const { messages, sendMessage, sendFile } = useChat();
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -68,6 +69,21 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 80) + "px";
   };
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && sendFile) {
+      sendFile(file);
+    }
+    // Reset input to allow selecting the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [sendFile]);
+
+  const handleFileButtonClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   return (
     <>
@@ -170,12 +186,12 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
               <div className="flex items-end gap-2">
                 <div className="flex-1 flex items-end gap-2 bg-gray-100 dark:bg-gray-800 rounded-3xl px-3 py-2">
-                  <button
+                  {/* <button
                     className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
                     aria-label="Emoji"
                   >
                     <Smile className="w-4 h-4 text-gray-500" />
-                  </button>
+                  </button> */}
 
                   <textarea
                     ref={textareaRef}
@@ -187,9 +203,17 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                     rows={1}
                   />
 
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    aria-label="Chọn file"
+                  />
                   <button
+                    onClick={handleFileButtonClick}
                     className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
-                    aria-label="Đính kèm"
+                    aria-label="Đính kèm file"
                   >
                     <Paperclip className="w-4 h-4 text-gray-500" />
                   </button>

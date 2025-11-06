@@ -1,6 +1,6 @@
-import type { Message } from "@/types/chat.type";
+import type { Message, FileData } from "@/types/chat.type";
 import { motion } from "framer-motion";
-import { Volume2 } from "lucide-react";
+import { Volume2, File, Download, Image as ImageIcon } from "lucide-react";
 import CustomAvatar from "./CustomAvatar";
 import { MessageTable } from "./MessageTable";
 import { MessageChart } from "./MessageChart";
@@ -52,6 +52,62 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
         {/* Chart message */}
         {message.type === "chart" && message.data && (
           <MessageChart data={message.data} />
+        )}
+
+        {/* File message */}
+        {message.type === "file" && message.data && (
+          <div
+            className={`rounded-2xl px-4 py-3 ${
+              isUser
+                ? "bg-blue-500 text-white"
+                : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              {(message.data as FileData).dataUrl ? (
+                <div className="flex-shrink-0">
+                  <img
+                    src={(message.data as FileData).dataUrl}
+                    alt={(message.data as FileData).name}
+                    className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex-shrink-0">
+                  <File className="w-8 h-8" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {(message.data as FileData).type?.startsWith("image/") ? (
+                    <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                  ) : (
+                    <File className="w-4 h-4 flex-shrink-0" />
+                  )}
+                  <p className="font-medium truncate">
+                    {(message.data as FileData).name}
+                  </p>
+                </div>
+                <p className="text-xs opacity-70">
+                  {(message.data as FileData).size
+                    ? `${((message.data as FileData).size / 1024).toFixed(2)} KB`
+                    : ""}
+                  {(message.data as FileData).type &&
+                    ` • ${(message.data as FileData).type}`}
+                </p>
+                {(message.data as FileData).dataUrl && (
+                  <a
+                    href={(message.data as FileData).dataUrl}
+                    download={(message.data as FileData).name}
+                    className="inline-flex items-center gap-1 mt-2 text-xs hover:underline"
+                  >
+                    <Download className="w-3 h-3" />
+                    Tải xuống
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">

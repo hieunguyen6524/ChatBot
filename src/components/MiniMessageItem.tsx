@@ -1,5 +1,6 @@
-import type { Message } from "@/types/chat.type";
+import type { Message, FileData } from "@/types/chat.type";
 import { motion } from "framer-motion";
+import { File, Image as ImageIcon } from "lucide-react";
 
 type MiniMessageItem = {
   message: Message;
@@ -21,9 +22,45 @@ function MiniMessageItem({ message }: MiniMessageItem) {
             : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap wrap-break-word">
-          {message.content}
-        </p>
+        {/* File message */}
+        {message.type === "file" && message.data ? (
+          <div className="flex items-start gap-2">
+            {(message.data as FileData).dataUrl ? (
+              <div className="flex-shrink-0">
+                <img
+                  src={(message.data as FileData).dataUrl}
+                  alt={(message.data as FileData).name}
+                  className="max-w-[120px] max-h-[120px] rounded-lg object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex-shrink-0">
+                <File className="w-5 h-5" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1 mb-1">
+                {(message.data as FileData).type?.startsWith("image/") ? (
+                  <ImageIcon className="w-3 h-3 flex-shrink-0" />
+                ) : (
+                  <File className="w-3 h-3 flex-shrink-0" />
+                )}
+                <p className="text-xs font-medium truncate">
+                  {(message.data as FileData).name}
+                </p>
+              </div>
+              <p className="text-xs opacity-70">
+                {(message.data as FileData).size
+                  ? `${((message.data as FileData).size / 1024).toFixed(2)} KB`
+                  : ""}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm whitespace-pre-wrap wrap-break-word">
+            {message.content}
+          </p>
+        )}
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs opacity-70">
             {new Date(message.timestamp).toLocaleTimeString("vi-VN", {

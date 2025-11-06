@@ -11,7 +11,7 @@ import CustomAvatar from "@/components/CustomAvatar";
 
 function ChatPage() {
   const [theme, toggleTheme] = useTheme();
-  const { messages, sendMessage } = useChat();
+  const { messages, sendMessage, sendFile } = useChat();
   const { voiceState, startRecording, stopRecording, speak, stopSpeaking } =
     useVoice();
   const [showSiriInterface, setShowSiriInterface] = useState(false);
@@ -65,7 +65,7 @@ function ChatPage() {
 
       <MessageList messages={messages} onSpeak={speak} />
 
-      <Composer onSend={sendMessage} onOpenVoice={handleOpenVoice} />
+      <Composer onSend={sendMessage} onSendFile={sendFile} onOpenVoice={handleOpenVoice} />
 
       <AnimatePresence>
         {showSiriInterface && (

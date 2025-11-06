@@ -5,7 +5,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   status: "sending" | "success" | "error";
-  type?: "text" | "table" | "chart";
+  type?: "text" | "table" | "chart" | "file";
   data?: any;
 }
 
@@ -20,4 +20,12 @@ export interface ChartData {
   xKey?: string;
   yKeys?: string[];
   title?: string;
+}
+
+export interface FileData {
+  name: string;
+  size: number;
+  type: string;
+  url?: string; // URL for preview/download
+  dataUrl?: string; // Base64 data URL for images
 }

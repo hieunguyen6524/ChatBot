@@ -1,4 +1,4 @@
-import type { Message } from "@/types/chat.type";
+import type { Message, FileData } from "@/types/chat.type";
 import { useCallback } from "react";
 import { useChatStore } from "@/store/chatStore";
 
@@ -118,5 +118,108 @@ export const useChat = () => {
     }, 1000);
   }, [append, replaceMessage]);
 
-  return { messages, sendMessage };
+  const sendFile = useCallback(async (file: File) => {
+    // Convert file to base64 for preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      
+      const fileData: FileData = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl: file.type.startsWith("image/") ? dataUrl : undefined,
+      };
+
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: `Đã gửi file: ${file.name}`,
+        timestamp: new Date(),
+        status: "sending",
+        type: "file",
+        data: fileData,
+      };
+
+      append(userMsg);
+
+      // Simulate upload
+      setTimeout(() => {
+        replaceMessage(userMsg.id, (m) => ({ ...m, status: "success" as const }));
+
+        // Mock AI response
+        setTimeout(() => {
+          const aiMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `Tôi đã nhận được file "${file.name}" (${(file.size / 1024).toFixed(2)} KB). Loại file: ${file.type || "unknown"}`,
+            timestamp: new Date(),
+            status: "success",
+            type: "text",
+          };
+
+          append(aiMsg);
+        }, 500);
+      }, 1000);
+    };
+
+    reader.onerror = () => {
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: `Lỗi khi đọc file: ${file.name}`,
+        timestamp: new Date(),
+        status: "error",
+        type: "file",
+        data: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        },
+      };
+      append(userMsg);
+    };
+
+    if (file.type.startsWith("image/")) {
+      reader.readAsDataURL(file);
+    } else {
+      // For non-image files, create message without preview
+      const fileData: FileData = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      };
+
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: `Đã gửi file: ${file.name}`,
+        timestamp: new Date(),
+        status: "sending",
+        type: "file",
+        data: fileData,
+      };
+
+      append(userMsg);
+
+      setTimeout(() => {
+        replaceMessage(userMsg.id, (m) => ({ ...m, status: "success" as const }));
+
+        setTimeout(() => {
+          const aiMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `Tôi đã nhận được file "${file.name}" (${(file.size / 1024).toFixed(2)} KB). Loại file: ${file.type || "unknown"}`,
+            timestamp: new Date(),
+            status: "success",
+            type: "text",
+          };
+
+          append(aiMsg);
+        }, 500);
+      }, 1000);
+    }
+  }, [append, replaceMessage]);
+
+  return { messages, sendMessage, sendFile };
 };
