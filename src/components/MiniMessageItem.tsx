@@ -22,8 +22,24 @@ function MiniMessageItem({ message }: MiniMessageItem) {
             : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         }`}
       >
-        {/* File message */}
-        {message.type === "file" && message.data ? (
+        {/* Text with files message */}
+        {(message.type === "text_with_files" || ((!message.type || message.type === "text") && message.files)) ? (
+          <div className="space-y-2">
+            {/* Text content */}
+            {message.content && message.content.trim() && (
+              <p className="text-sm whitespace-pre-wrap wrap-break-word">
+                {message.content}
+              </p>
+            )}
+            {/* Files count */}
+            {message.files && message.files.length > 0 && (
+              <p className="text-xs opacity-70">
+                📎 {message.files.length} file{message.files.length > 1 ? "s" : ""}
+              </p>
+            )}
+          </div>
+        ) : message.type === "file" && message.data ? (
+          /* File message (single file, old format) */
           <div className="flex items-start gap-2">
             {(message.data as FileData).dataUrl ? (
               <div className="flex-shrink-0">
@@ -57,6 +73,7 @@ function MiniMessageItem({ message }: MiniMessageItem) {
             </div>
           </div>
         ) : (
+          /* Text message only */
           <p className="text-sm whitespace-pre-wrap wrap-break-word">
             {message.content}
           </p>

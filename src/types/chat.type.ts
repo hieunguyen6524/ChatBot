@@ -5,8 +5,9 @@ export interface Message {
   content: string;
   timestamp: Date;
   status: "sending" | "success" | "error";
-  type?: "text" | "table" | "chart" | "file";
+  type?: "text" | "table" | "chart" | "file" | "text_with_files";
   data?: any;
+  files?: FileData[]; // Array of files attached to the message
 }
 
 export interface TableData {
