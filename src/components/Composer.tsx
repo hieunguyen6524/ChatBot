@@ -1,18 +1,25 @@
-import { Paperclip, Send } from "lucide-react";
+import { Paperclip, Send, X, File } from "lucide-react";
 import { useCallback, useRef, useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import VoiceControls from "./VoiceControls";
+import { MAX_FILES } from "@/config/env";
 
 type ComposerProps = {
   onSend: (content: string) => void;
-  onSendFile?: (file: File) => void;
+  onSendMessageWithFiles?: (content: string, files: File[]) => void;
   onOpenVoice: () => void;
   voiceTranscript?: string; // Transcript từ voice để hiển thị trong input
   onVoiceTranscriptProcessed?: () => void; // Callback khi đã xử lý transcript
 };
 
-function Composer({ onSend, onSendFile, onOpenVoice, voiceTranscript, onVoiceTranscriptProcessed }: ComposerProps) {
+interface FileWithPreview {
+  file: File;
+  preview: string | null;
+}
+
+function Composer({ onSend, onSendMessageWithFiles, onOpenVoice, voiceTranscript, onVoiceTranscriptProcessed }: ComposerProps) {
   const [input, setInput] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,14 +41,30 @@ function Composer({ onSend, onSendFile, onOpenVoice, voiceTranscript, onVoiceTra
   }, [voiceTranscript, onVoiceTranscriptProcessed]);
 
   const handleSend = useCallback(() => {
-    if (input.trim()) {
-      onSend(input.trim());
+    const hasText = input.trim().length > 0;
+    const hasFiles = selectedFiles.length > 0;
+    
+    if (hasText || hasFiles) {
+      // Gửi text và files trong cùng 1 message
+      if (hasFiles && onSendMessageWithFiles) {
+        const files = selectedFiles.map(f => f.file);
+        onSendMessageWithFiles(input.trim(), files);
+      } else if (hasText) {
+        // Chỉ gửi text nếu không có file
+        onSend(input.trim());
+      }
+      
+      // Reset
       setInput("");
+      setSelectedFiles([]);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
-  }, [input, onSend]);
+  }, [input, selectedFiles, onSend, onSendMessageWithFiles]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -57,15 +80,68 @@ function Composer({ onSend, onSendFile, onOpenVoice, voiceTranscript, onVoiceTra
   };
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onSendFile) {
-      onSendFile(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Check giới hạn số file
+    const currentCount = selectedFiles.length;
+    const remainingSlots = MAX_FILES - currentCount;
+
+    if (remainingSlots <= 0) {
+      alert(`Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
     }
-    // Reset input to allow selecting the same file again
+
+    // Lấy số file có thể thêm (không vượt quá giới hạn)
+    const filesToAdd = Array.from(files).slice(0, remainingSlots);
+    
+    if (filesToAdd.length < files.length) {
+      alert(`Bạn chỉ có thể thêm tối đa ${remainingSlots} file nữa (tổng tối đa ${MAX_FILES} file).`);
+    }
+
+    // Process files để tạo preview
+    const processFiles = filesToAdd.map((file): Promise<FileWithPreview> => {
+      return new Promise((resolve) => {
+        if (file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            resolve({
+              file,
+              preview: event.target?.result as string,
+            });
+          };
+          reader.onerror = () => {
+            resolve({
+              file,
+              preview: null,
+            });
+          };
+          reader.readAsDataURL(file);
+        } else {
+          resolve({
+            file,
+            preview: null,
+          });
+        }
+      });
+    });
+
+    Promise.all(processFiles).then((filePreviews) => {
+      setSelectedFiles((prev) => [...prev, ...filePreviews]);
+    });
+
+    // Reset input để có thể chọn lại file
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [onSendFile]);
+  }, [selectedFiles.length]);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
   const handleFileButtonClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -92,6 +168,7 @@ function Composer({ onSend, onSendFile, onOpenVoice, voiceTranscript, onVoiceTra
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             onChange={handleFileSelect}
             className="hidden"
             aria-label="Chọn file"
@@ -110,13 +187,75 @@ function Composer({ onSend, onSendFile, onOpenVoice, voiceTranscript, onVoiceTra
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={handleSend}
-          disabled={!input.trim()}
+          disabled={!input.trim() && selectedFiles.length === 0}
           className="p-3 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="Gửi tin nhắn"
         >
           <Send className="w-5 h-5" />
         </motion.button>
       </div>
+      
+      {/* Files Preview */}
+      {selectedFiles.length > 0 && (
+        <div className="mt-2 space-y-2">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 px-1">
+            <span>
+              {selectedFiles.length} / {MAX_FILES} file{selectedFiles.length > 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={() => {
+                setSelectedFiles([]);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+              }}
+              className="text-blue-500 hover:text-blue-600"
+            >
+              Xóa tất cả
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+            <AnimatePresence>
+              {selectedFiles.map((fileWithPreview, index) => (
+                <motion.div
+                  key={`${fileWithPreview.file.name}-${index}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="relative p-2 bg-gray-100 dark:bg-gray-800 rounded-lg group"
+                >
+                  {fileWithPreview.preview ? (
+                    <img
+                      src={fileWithPreview.preview}
+                      alt={fileWithPreview.file.name}
+                      className="w-full h-24 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                      <File className="w-8 h-8 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="mt-1">
+                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
+                      {fileWithPreview.file.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {(fileWithPreview.file.size / 1024).toFixed(2)} KB
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveFile(index)}
+                    className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-black/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Xóa file"
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

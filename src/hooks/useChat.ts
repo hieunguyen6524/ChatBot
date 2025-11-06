@@ -221,5 +221,99 @@ export const useChat = () => {
     }
   }, [append, replaceMessage]);
 
-  return { messages, sendMessage, sendFile };
+  const sendMessageWithFiles = useCallback(async (content: string, files: File[]) => {
+    // Process all files to get FileData
+    const processFiles = async (): Promise<FileData[]> => {
+      const fileDataPromises = files.map((file): Promise<FileData> => {
+        return new Promise((resolve) => {
+          if (file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const dataUrl = e.target?.result as string;
+              resolve({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                dataUrl,
+              });
+            };
+            reader.onerror = () => {
+              resolve({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+              });
+            };
+            reader.readAsDataURL(file);
+          } else {
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type,
+            });
+          }
+        });
+      });
+      return Promise.all(fileDataPromises);
+    };
+
+    const fileDataArray = await processFiles();
+
+    // Determine message type and content
+    const hasText = content.trim().length > 0;
+    const hasFiles = fileDataArray.length > 0;
+    const messageType = hasText && hasFiles ? "text_with_files" : hasFiles ? "file" : "text";
+    
+    // Build content message
+    let messageContent = content.trim();
+    if (!messageContent && hasFiles) {
+      messageContent = `Đã gửi ${fileDataArray.length} file${fileDataArray.length > 1 ? "s" : ""}`;
+    }
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: messageContent,
+      timestamp: new Date(),
+      status: "sending",
+      type: messageType,
+      files: hasFiles ? fileDataArray : undefined,
+    };
+
+    append(userMsg);
+
+    // Simulate upload
+    setTimeout(() => {
+      replaceMessage(userMsg.id, (m) => ({ ...m, status: "success" as const }));
+
+      // Mock AI response
+      setTimeout(() => {
+        const fileNames = fileDataArray.map(f => f.name).join(", ");
+        const fileCount = fileDataArray.length;
+        const totalSize = fileDataArray.reduce((sum, f) => sum + f.size, 0);
+        
+        let aiContent = "";
+        if (hasText && hasFiles) {
+          aiContent = `Tôi đã nhận được tin nhắn: "${messageContent}" kèm theo ${fileCount} file${fileCount > 1 ? "s" : ""} (${(totalSize / 1024).toFixed(2)} KB).`;
+        } else if (hasFiles) {
+          aiContent = `Tôi đã nhận được ${fileCount} file${fileCount > 1 ? "s" : ""}: ${fileNames} (${(totalSize / 1024).toFixed(2)} KB).`;
+        } else {
+          aiContent = `Tôi đã nhận được: "${messageContent}". Thử hỏi tôi về "bảng" hoặc "biểu đồ"!`;
+        }
+
+        const aiMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: aiContent,
+          timestamp: new Date(),
+          status: "success",
+          type: "text",
+        };
+
+        append(aiMsg);
+      }, 500);
+    }, 1000);
+  }, [append, replaceMessage]);
+
+  return { messages, sendMessage, sendFile, sendMessageWithFiles };
 };
