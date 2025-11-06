@@ -1,5 +1,5 @@
-import { Paperclip, Send, Smile } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { Paperclip, Send } from "lucide-react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import VoiceControls from "./VoiceControls";
 
@@ -7,12 +7,31 @@ type ComposerProps = {
   onSend: (content: string) => void;
   onSendFile?: (file: File) => void;
   onOpenVoice: () => void;
+  voiceTranscript?: string; // Transcript từ voice để hiển thị trong input
+  onVoiceTranscriptProcessed?: () => void; // Callback khi đã xử lý transcript
 };
 
-function Composer({ onSend, onSendFile, onOpenVoice }: ComposerProps) {
+function Composer({ onSend, onSendFile, onOpenVoice, voiceTranscript, onVoiceTranscriptProcessed }: ComposerProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Xử lý transcript từ voice
+  useEffect(() => {
+    if (voiceTranscript && voiceTranscript.trim()) {
+      setInput(voiceTranscript.trim());
+      // Auto focus và resize textarea
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+      }
+      // Notify parent đã xử lý transcript
+      if (onVoiceTranscriptProcessed) {
+        onVoiceTranscriptProcessed();
+      }
+    }
+  }, [voiceTranscript, onVoiceTranscriptProcessed]);
 
   const handleSend = useCallback(() => {
     if (input.trim()) {

@@ -15,6 +15,7 @@ function ChatPage() {
   const { voiceState, startRecording, stopRecording, speak, stopSpeaking } =
     useVoice();
   const [showSiriInterface, setShowSiriInterface] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState<string>("");
 
   const handleOpenVoice = useCallback(() => {
     setShowSiriInterface(true);
@@ -25,25 +26,30 @@ function ChatPage() {
     stopRecording();
     stopSpeaking();
 
-    // Send transcript as message if available
-    if (voiceState.transcript) {
-      sendMessage(voiceState.transcript);
+    // Không gửi ngay, mà hiển thị transcript trong input để chỉnh sửa
+    if (voiceState.transcript && voiceState.transcript.trim()) {
+      setVoiceTranscript(voiceState.transcript.trim());
     }
 
     setShowSiriInterface(false);
-  }, [stopRecording, stopSpeaking, voiceState.transcript, sendMessage]);
+  }, [stopRecording, stopSpeaking, voiceState.transcript]);
 
   const handleStopRecording = useCallback(() => {
     stopRecording();
 
-    // Send transcript as message after a short delay
+    // Không gửi ngay, mà hiển thị transcript trong input để chỉnh sửa
     setTimeout(() => {
-      if (voiceState.transcript) {
-        sendMessage(voiceState.transcript);
-        setShowSiriInterface(false);
+      if (voiceState.transcript && voiceState.transcript.trim()) {
+        setVoiceTranscript(voiceState.transcript.trim());
       }
-    }, 500);
-  }, [stopRecording, voiceState.transcript, sendMessage]);
+      setShowSiriInterface(false);
+    }, 300);
+  }, [stopRecording, voiceState.transcript]);
+
+  const handleVoiceTranscriptProcessed = useCallback(() => {
+    // Clear transcript sau khi đã xử lý
+    setVoiceTranscript("");
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -65,7 +71,13 @@ function ChatPage() {
 
       <MessageList messages={messages} onSpeak={speak} />
 
-      <Composer onSend={sendMessage} onSendFile={sendFile} onOpenVoice={handleOpenVoice} />
+      <Composer 
+        onSend={sendMessage} 
+        onSendFile={sendFile} 
+        onOpenVoice={handleOpenVoice}
+        voiceTranscript={voiceTranscript}
+        onVoiceTranscriptProcessed={handleVoiceTranscriptProcessed}
+      />
 
       <AnimatePresence>
         {showSiriInterface && (
