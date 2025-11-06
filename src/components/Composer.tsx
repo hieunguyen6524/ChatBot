@@ -197,9 +197,9 @@ function Composer({ onSend, onSendMessageWithFiles, onOpenVoice, voiceTranscript
       
       {/* Files Preview */}
       {selectedFiles.length > 0 && (
-        <div className="mt-2 space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 px-1">
-            <span>
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2 px-1">
+            <span className="font-medium">
               {selectedFiles.length} / {MAX_FILES} file{selectedFiles.length > 1 ? "s" : ""}
             </span>
             <button
@@ -209,47 +209,53 @@ function Composer({ onSend, onSendMessageWithFiles, onOpenVoice, voiceTranscript
                   fileInputRef.current.value = "";
                 }
               }}
-              className="text-blue-500 hover:text-blue-600"
+              className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors text-xs font-medium"
             >
               Xóa tất cả
             </button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-            <AnimatePresence>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <AnimatePresence mode="popLayout">
               {selectedFiles.map((fileWithPreview, index) => (
                 <motion.div
                   key={`${fileWithPreview.file.name}-${index}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="relative p-2 bg-gray-100 dark:bg-gray-800 rounded-lg group"
+                  initial={{ opacity: 0, scale: 0.8, x: -20 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.8, x: 20 }}
+                  className="relative flex-shrink-0 group"
                 >
-                  {fileWithPreview.preview ? (
-                    <img
-                      src={fileWithPreview.preview}
-                      alt={fileWithPreview.file.name}
-                      className="w-full h-24 object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                      <File className="w-8 h-8 text-gray-400" />
-                    </div>
-                  )}
-                  <div className="mt-1">
-                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
+                    {fileWithPreview.preview ? (
+                      <img
+                        src={fileWithPreview.preview}
+                        alt={fileWithPreview.file.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                        <File className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 hover:bg-red-600 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                      aria-label="Xóa file"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                  <div className="mt-1.5 w-20">
+                    <p className="text-[10px] font-medium text-gray-700 dark:text-gray-300 truncate text-center leading-tight">
                       {fileWithPreview.file.name}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {(fileWithPreview.file.size / 1024).toFixed(2)} KB
+                    <p className="text-[9px] text-gray-500 dark:text-gray-500 text-center mt-0.5">
+                      {fileWithPreview.file.size < 1024 
+                        ? `${fileWithPreview.file.size} B`
+                        : fileWithPreview.file.size < 1024 * 1024
+                        ? `${(fileWithPreview.file.size / 1024).toFixed(1)} KB`
+                        : `${(fileWithPreview.file.size / (1024 * 1024)).toFixed(1)} MB`}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleRemoveFile(index)}
-                    className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-black/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Xóa file"
-                  >
-                    <X className="w-3 h-3 text-white" />
-                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>

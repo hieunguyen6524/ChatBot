@@ -19,24 +19,24 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} mb-4`}
+      className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"} mb-5`}
     >
       <CustomAvatar role={message.role} />
       <div
         className={`flex flex-col ${
           isUser ? "items-end" : "items-start"
-        } max-w-[70%]`}
+        } max-w-[75%] sm:max-w-[70%]`}
       >
         {/* Text message */}
         {(!message.type || message.type === "text") && !message.files && (
           <div
-            className={`rounded-2xl px-4 py-2 ${
+            className={`rounded-2xl px-4 py-2.5 shadow-sm ${
               isUser
-                ? "bg-blue-500 text-white"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                ? "bg-blue-500 text-white shadow-blue-500/20"
+                : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-gray-200/50 dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700"
             }`}
           >
-            <p className="whitespace-pre-wrap wrap-break-word">
+            <p className="whitespace-pre-wrap wrap-break-word leading-relaxed text-[15px]">
               {message.content}
             </p>
           </div>
@@ -44,17 +44,17 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
 
         {/* Text with files message */}
         {(message.type === "text_with_files" || ((!message.type || message.type === "text") && message.files)) && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {/* Text content */}
             {message.content && message.content.trim() && (
               <div
-                className={`rounded-2xl px-4 py-2 ${
+                className={`rounded-2xl px-4 py-2.5 shadow-sm ${
                   isUser
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    ? "bg-blue-500 text-white shadow-blue-500/20"
+                    : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-gray-200/50 dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700"
                 }`}
               >
-                <p className="whitespace-pre-wrap wrap-break-word">
+                <p className="whitespace-pre-wrap wrap-break-word leading-relaxed text-[15px]">
                   {message.content}
                 </p>
               </div>
@@ -62,14 +62,14 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
             
             {/* Files */}
             {message.files && message.files.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {message.files.map((fileData, index) => (
                   <div
                     key={`${fileData.name}-${index}`}
-                    className={`rounded-xl p-3 ${
+                    className={`rounded-xl p-3 shadow-sm ${
                       isUser
-                        ? "bg-blue-500/80 text-white"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                        ? "bg-blue-500/90 text-white shadow-blue-500/20"
+                        : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-gray-200/50 dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700"
                     }`}
                   >
                     {fileData.dataUrl ? (
@@ -130,10 +130,10 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
         {/* File message (single file, old format) */}
         {message.type === "file" && message.data && !message.files && (
           <div
-            className={`rounded-2xl px-4 py-3 ${
+            className={`rounded-2xl px-4 py-3 shadow-sm ${
               isUser
-                ? "bg-blue-500 text-white"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                ? "bg-blue-500 text-white shadow-blue-500/20"
+                : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-gray-200/50 dark:shadow-gray-900/50 border border-gray-100 dark:border-gray-700"
             }`}
           >
             <div className="flex items-start gap-3">
@@ -183,8 +183,8 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
           </div>
         )}
 
-        <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
-          <span>
+        <div className={`flex items-center gap-2 mt-1.5 text-xs text-gray-500 dark:text-gray-400 ${isUser ? "flex-row-reverse" : ""}`}>
+          <span className="font-medium">
             {new Date(message.timestamp).toLocaleTimeString("vi-VN", {
               hour: "2-digit",
               minute: "2-digit",

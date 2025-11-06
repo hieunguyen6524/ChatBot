@@ -8,7 +8,6 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-      {/* Your homepage content here */}
       <div className="container mx-auto px-4 py-20">
         <h1 className="text-5xl font-bold text-center text-gray-900 dark:text-white mb-4">
           Welcome to ChatBot AI
@@ -18,7 +17,6 @@ const HomePage: React.FC = () => {
         </p>
       </div>
 
-      {/* Messenger-style Chat Bubble */}
       <ChatBubble
         isOpen={isChatOpen}
         onToggle={() => setIsChatOpen(!isChatOpen)}

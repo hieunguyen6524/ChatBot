@@ -8,6 +8,7 @@ export interface Message {
   type?: "text" | "table" | "chart" | "file" | "text_with_files";
   data?: any;
   files?: FileData[]; // Array of files attached to the message
+  userRole?: string; // Role of the user sending the message (e.g., "manager", "employee", etc.)
 }
 
 export interface TableData {

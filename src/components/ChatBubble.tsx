@@ -133,7 +133,11 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
               {messages.map((message) => (
-                <MiniMessageItem key={message.id} message={message} />
+                <MiniMessageItem 
+                  key={message.id} 
+                  message={message} 
+                  onMaximize={onMaximize}
+                />
               ))}
 
               {/* Typing Indicator */}
