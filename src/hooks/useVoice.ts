@@ -18,6 +18,7 @@ export const useVoice = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const interimTranscriptRef = useRef<string>("");
+  const finalTranscriptRef = useRef<string>(""); // Lưu final transcript đã xác nhận
 
   useEffect(() => {
     // Initialize Speech Recognition
@@ -30,73 +31,42 @@ export const useVoice = () => {
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = "vi-VN";
 
-      // recognitionRef.current.onresult = (event: any) => {
-      //   let finalTranscript = "";
-      //   let interimTranscript = "";
-      //   let allFinalTranscript = ""; // Toàn bộ final transcript
-        
-      //   // Lấy toàn bộ final transcript từ đầu
-      //   for (let i = 0; i < event.results.length; i++) {
-      //     if (event.results[i].isFinal) {
-      //       allFinalTranscript += event.results[i][0].transcript;
-      //     }
-      //   }
-        
-      //   // Lấy phần mới từ resultIndex (chỉ phần mới được thêm vào)
-      //   for (let i = event.resultIndex; i < event.results.length; i++) {
-      //     const transcript = event.results[i][0].transcript;
-      //     if (event.results[i].isFinal) {
-      //       finalTranscript += transcript;
-      //     } else {
-      //       interimTranscript += transcript;
-      //     }
-      //   }
-        
-      //   // Cập nhật transcript với toàn bộ final results (lấy từ đầu để tránh duplicate)
-      //   if (allFinalTranscript) {
-      //     setVoiceState((prev) => ({ 
-      //       ...prev, 
-      //       transcript: allFinalTranscript.trim()
-      //     }));
-      //     interimTranscriptRef.current = ""; // Clear interim sau khi có final
-      //   } else if (interimTranscript) {
-      //     // Hiển thị interim transcript nếu chưa có final
-      //     // Lấy final transcript hiện tại + interim mới
-      //     setVoiceState((prev) => {
-      //       const currentFinal = prev.transcript.trim();
-      //       const combinedTranscript = currentFinal ? 
-      //         (currentFinal + " " + interimTranscript).trim() : 
-      //         interimTranscript.trim();
-            
-      //       return {
-      //         ...prev,
-      //         transcript: combinedTranscript
-      //       };
-      //     });
-      //     interimTranscriptRef.current = interimTranscript;
-      //   }
-      // };
-      const finalTranscriptRef = useRef<string>("");
-
       recognitionRef.current.onresult = (event: any) => {
-        let finalTranscript = finalTranscriptRef.current;
-        let interimTranscript = "";
-      
+        let newFinalTranscript = "";
+        let newInterimTranscript = "";
+        
+        // Chỉ lấy phần mới từ resultIndex trở đi (tránh duplicate)
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-            finalTranscriptRef.current = finalTranscript; // Lưu phần final đã xác nhận
+          const result = event.results[i];
+          const transcript = result[0].transcript;
+          
+          if (result.isFinal) {
+            // Chỉ thêm phần mới vào final transcript (không cộng lại phần cũ)
+            newFinalTranscript += transcript;
+            // Cập nhật final transcript ref với phần đã final
+            finalTranscriptRef.current += transcript;
           } else {
-            interimTranscript += transcript;
+            // Lấy interim transcript mới nhất
+            newInterimTranscript += transcript;
           }
         }
-      
-        const combined = (finalTranscript + " " + interimTranscript).trim();
-      
+        
+        // Cập nhật interim transcript ref
+        if (newInterimTranscript) {
+          interimTranscriptRef.current = newInterimTranscript;
+        } else {
+          interimTranscriptRef.current = "";
+        }
+        
+        // Hiển thị: final transcript (đã xác nhận) + interim transcript (chưa xác nhận)
+        const displayTranscript = (
+          finalTranscriptRef.current + 
+          (interimTranscriptRef.current ? " " + interimTranscriptRef.current : "")
+        ).trim();
+        
         setVoiceState((prev) => ({
           ...prev,
-          transcript: combined,
+          transcript: displayTranscript,
         }));
       };
       
@@ -192,7 +162,8 @@ export const useVoice = () => {
           audioLevel: 0,
         });
 
-        // Reset interim transcript
+        // Reset transcript refs khi bắt đầu recording mới
+        finalTranscriptRef.current = "";
         interimTranscriptRef.current = "";
         isRecordingRef.current = true;
         recognitionRef.current.start();
@@ -240,28 +211,24 @@ export const useVoice = () => {
 
     analyserRef.current = null;
 
-    // Lấy transcript cuối cùng từ state (đã được update trong onresult)
-    // Chỉ thêm interim nếu có và chưa được finalize
-    setVoiceState((prev) => {
-      let finalTranscript = prev.transcript.trim();
-      
-      // Nếu có interim transcript, thêm vào (chỉ nếu chưa có trong transcript)
-      if (interimTranscriptRef.current && interimTranscriptRef.current.trim()) {
-        const interim = interimTranscriptRef.current.trim();
-        // Chỉ thêm nếu interim không trùng với phần cuối của transcript
-        if (!finalTranscript.endsWith(interim)) {
-          finalTranscript = (finalTranscript + " " + interim).trim();
-        }
-        interimTranscriptRef.current = "";
-      }
-      
-      return {
-        ...prev,
-        isRecording: false,
-        audioLevel: 0,
-        transcript: finalTranscript,
-      };
-    });
+    // Lấy transcript cuối cùng: final + interim (nếu có)
+    const finalTranscript = finalTranscriptRef.current.trim();
+    const interimTranscript = interimTranscriptRef.current.trim();
+    const finalCombinedTranscript = (
+      finalTranscript + 
+      (interimTranscript ? " " + interimTranscript : "")
+    ).trim();
+    
+    setVoiceState((prev) => ({
+      ...prev,
+      isRecording: false,
+      audioLevel: 0,
+      transcript: finalCombinedTranscript,
+    }));
+    
+    // Reset refs sau khi đã lấy transcript
+    finalTranscriptRef.current = "";
+    interimTranscriptRef.current = "";
   }, []);
 
   const speak = useCallback((text: string) => {
@@ -289,3 +256,4 @@ export const useVoice = () => {
 
   return { voiceState, startRecording, stopRecording, speak, stopSpeaking };
 };
+
