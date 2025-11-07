@@ -31,7 +31,9 @@ function CustomAvatar({ role, src, alt, size = "md" }: CustomAvatarProps) {
         src={isUser ? src : "/src/assets/logo/logo-final.png"}
         alt={alt || role}
       />
-      <AvatarFallback>{isUser ? "U" : "AI"}</AvatarFallback>
+      <AvatarFallback className="text-black dark:text-white">
+        {isUser ? "U" : "AI"}
+      </AvatarFallback>
     </Avatar>
   );
 }

@@ -1,9 +1,34 @@
 import type { Message, FileData } from "@/types/chat.type";
 import { useCallback } from "react";
 import { useChatStore } from "@/store/chatStore";
+import { sendMessageToWebhook } from "@/services/chatApi";
 
 // TODO: Sau này sẽ lấy từ BE, hiện tại fix cứng
 const USER_ROLE = "manager";
+
+// Đọc giới hạn dung lượng file từ env (đơn vị MB), mặc định 10MB
+const MAX_FILE_SIZE_MB = parseFloat(
+  import.meta.env.VITE_MAX_FILE_SIZE_MB || "10"
+);
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // Chuyển MB sang bytes
+
+/**
+ * Kiểm tra kích thước file có vượt quá giới hạn không
+ * @param file File cần kiểm tra
+ * @returns true nếu file hợp lệ, false nếu vượt quá giới hạn
+ */
+const validateFileSize = (
+  file: File
+): { valid: boolean; errorMessage?: string } => {
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    return {
+      valid: false,
+      errorMessage: `File "${file.name}" có kích thước ${fileSizeMB} MB, vượt quá giới hạn ${MAX_FILE_SIZE_MB} MB.`,
+    };
+  }
+  return { valid: true };
+};
 
 export const useChat = () => {
   const messages = useChatStore((s) => s.messages);
@@ -24,115 +49,69 @@ export const useChat = () => {
 
       append(userMsg);
 
-      setTimeout(() => {
+      try {
+        // Cập nhật status của user message thành success
         replaceMessage(userMsg.id, (m) => ({
           ...m,
           status: "success" as const,
         }));
 
-        // Mock AI response with different types
-        setTimeout(() => {
-          let aiMsg: Message;
+        // Gửi message đến n8n webhook
+        const aiMsg = await sendMessageToWebhook({
+          role: "user",
+          content,
+          status: "sending",
+          type: "text",
+          userRole: USER_ROLE,
+        });
 
-          // Example: Table response
-          if (
-            content.toLowerCase().includes("bảng") ||
-            content.toLowerCase().includes("table")
-          ) {
-            aiMsg = {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
-              content: "Đây là bảng dữ liệu bán hàng:",
-              timestamp: new Date(),
-              status: "success",
-              type: "table",
-              data: {
-                headers: ["Tháng", "Doanh thu", "Đơn hàng", "Tăng trưởng"],
-                rows: [
-                  ["Tháng 1", "50M", "120", "+15%"],
-                  ["Tháng 2", "65M", "145", "+30%"],
-                  ["Tháng 3", "72M", "168", "+10%"],
-                  ["Tháng 4", "85M", "192", "+18%"],
-                ],
-              },
-            };
-          }
-          // Example: Chart response
-          else if (
-            content.toLowerCase().includes("biểu đồ") ||
-            content.toLowerCase().includes("chart")
-          ) {
-            aiMsg = {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
-              content: "Đây là biểu đồ doanh thu:",
-              timestamp: new Date(),
-              status: "success",
-              type: "chart",
-              data: {
-                type: "line",
-                title: "Doanh thu theo tháng",
-                data: [
-                  { name: "T1", revenue: 50, orders: 120 },
-                  { name: "T2", revenue: 65, orders: 145 },
-                  { name: "T3", revenue: 72, orders: 168 },
-                  { name: "T4", revenue: 85, orders: 192 },
-                  { name: "T5", revenue: 95, orders: 210 },
-                  { name: "T6", revenue: 110, orders: 235 },
-                ],
-                xKey: "name",
-                yKeys: ["revenue", "orders"],
-              },
-            };
-          } else if (
-            content.toLowerCase().includes("pie") ||
-            content.toLowerCase().includes("pie")
-          ) {
-            aiMsg = {
-              id: (Date.now() + 2).toString(),
-              role: "assistant",
-              content: "Đây là biểu đồ tỉ lệ doanh thu theo khu vực:",
-              timestamp: new Date(),
-              status: "success",
-              type: "chart",
-              data: {
-                type: "pie",
-                title: "Tỉ lệ doanh thu theo khu vực",
-                data: [
-                  { name: "Miền Bắc", value: 420 },
-                  { name: "Miền Trung", value: 260 },
-                  { name: "Miền Nam", value: 580 },
-                  { name: "Tây Nguyên", value: 190 },
-                ],
-                dataKey: "value",
-                nameKey: "name",
-              },
-            };
-          }
-          // Default text response
-          else {
-            aiMsg = {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
-              content: `Tôi đã nhận được: "${content}". Thử hỏi tôi về "bảng" hoặc "biểu đồ"!`,
-              timestamp: new Date(),
-              status: "success",
-              type: "text",
-            };
-          }
-
+        if (aiMsg) {
           append(aiMsg);
-        }, 500);
-      }, 1000);
+        }
+      } catch (error) {
+        // Nếu có lỗi, cập nhật status của user message thành error
+        console.log(error);
+        replaceMessage(userMsg.id, (m) => ({
+          ...m,
+          status: "error" as const,
+        }));
+
+        // Thêm error message từ assistant
+        const errorMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại.",
+          timestamp: new Date(),
+          status: "error",
+          type: "text",
+        };
+        append(errorMsg);
+      }
     },
     [append, replaceMessage]
   );
 
   const sendFile = useCallback(
     async (file: File) => {
+      // Kiểm tra kích thước file
+      const validation = validateFileSize(file);
+      if (!validation.valid) {
+        // Hiển thị error message
+        const errorMsg: Message = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: validation.errorMessage || "File quá lớn.",
+          timestamp: new Date(),
+          status: "error",
+          type: "text",
+        };
+        append(errorMsg);
+        return;
+      }
+
       // Convert file to base64 for preview
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const dataUrl = e.target?.result as string;
 
         const fileData: FileData = {
@@ -155,29 +134,45 @@ export const useChat = () => {
 
         append(userMsg);
 
-        // Simulate upload
-        setTimeout(() => {
+        try {
+          // Cập nhật status của user message thành success
           replaceMessage(userMsg.id, (m) => ({
             ...m,
             status: "success" as const,
           }));
 
-          // Mock AI response
-          setTimeout(() => {
-            const aiMsg: Message = {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
-              content: `Tôi đã nhận được file "${file.name}" (${(
-                file.size / 1024
-              ).toFixed(2)} KB). Loại file: ${file.type || "unknown"}`,
-              timestamp: new Date(),
-              status: "success",
-              type: "text",
-            };
+          // Gửi file message đến n8n webhook
+          const aiMsg = await sendMessageToWebhook({
+            role: "user",
+            content: `Đã gửi file: ${file.name}`,
+            status: "sending",
+            type: "file",
+            data: fileData,
+            userRole: USER_ROLE,
+          });
 
+          if (aiMsg) {
             append(aiMsg);
-          }, 500);
-        }, 1000);
+          }
+        } catch (error) {
+          console.log(error);
+          // Nếu có lỗi, cập nhật status của user message thành error
+          replaceMessage(userMsg.id, (m) => ({
+            ...m,
+            status: "error" as const,
+          }));
+
+          // Thêm error message từ assistant
+          const errorMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "Đã xảy ra lỗi khi xử lý file. Vui lòng thử lại.",
+            timestamp: new Date(),
+            status: "error",
+            type: "text",
+          };
+          append(errorMsg);
+        }
       };
 
       reader.onerror = () => {
@@ -221,27 +216,47 @@ export const useChat = () => {
 
         append(userMsg);
 
-        setTimeout(() => {
-          replaceMessage(userMsg.id, (m) => ({
-            ...m,
-            status: "success" as const,
-          }));
+        (async () => {
+          try {
+            // Cập nhật status của user message thành success
+            replaceMessage(userMsg.id, (m) => ({
+              ...m,
+              status: "success" as const,
+            }));
 
-          setTimeout(() => {
-            const aiMsg: Message = {
+            // Gửi file message đến n8n webhook
+            const aiMsg = await sendMessageToWebhook({
+              role: "user",
+              content: `Đã gửi file: ${file.name}`,
+              status: "sending",
+              type: "file",
+              data: fileData,
+              userRole: USER_ROLE,
+            });
+
+            if (aiMsg) {
+              append(aiMsg);
+            }
+          } catch (error) {
+            console.log(error);
+            // Nếu có lỗi, cập nhật status của user message thành error
+            replaceMessage(userMsg.id, (m) => ({
+              ...m,
+              status: "error" as const,
+            }));
+
+            // Thêm error message từ assistant
+            const errorMsg: Message = {
               id: (Date.now() + 1).toString(),
               role: "assistant",
-              content: `Tôi đã nhận được file "${file.name}" (${(
-                file.size / 1024
-              ).toFixed(2)} KB). Loại file: ${file.type || "unknown"}`,
+              content: "Đã xảy ra lỗi khi xử lý file. Vui lòng thử lại.",
               timestamp: new Date(),
-              status: "success",
+              status: "error",
               type: "text",
             };
-
-            append(aiMsg);
-          }, 500);
-        }, 1000);
+            append(errorMsg);
+          }
+        })();
       }
     },
     [append, replaceMessage]
@@ -249,6 +264,30 @@ export const useChat = () => {
 
   const sendMessageWithFiles = useCallback(
     async (content: string, files: File[]) => {
+      // Kiểm tra kích thước của tất cả files
+      const invalidFiles: { file: File; error: string }[] = [];
+      files.forEach((file) => {
+        const validation = validateFileSize(file);
+        if (!validation.valid && validation.errorMessage) {
+          invalidFiles.push({ file, error: validation.errorMessage });
+        }
+      });
+
+      // Nếu có file vượt quá giới hạn, hiển thị lỗi và dừng
+      if (invalidFiles.length > 0) {
+        const errorMessages = invalidFiles.map((item) => item.error).join("\n");
+        const errorMsg: Message = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: errorMessages,
+          timestamp: new Date(),
+          status: "error",
+          type: "text",
+        };
+        append(errorMsg);
+        return;
+      }
+
       // Process all files to get FileData
       const processFiles = async (): Promise<FileData[]> => {
         const fileDataPromises = files.map((file): Promise<FileData> => {
@@ -313,44 +352,45 @@ export const useChat = () => {
 
       append(userMsg);
 
-      // Simulate upload
-      setTimeout(() => {
+      try {
+        // Cập nhật status của user message thành success
         replaceMessage(userMsg.id, (m) => ({
           ...m,
           status: "success" as const,
         }));
 
-        // Mock AI response
-        setTimeout(() => {
-          const fileNames = fileDataArray.map((f) => f.name).join(", ");
-          const fileCount = fileDataArray.length;
-          const totalSize = fileDataArray.reduce((sum, f) => sum + f.size, 0);
+        // Gửi message với files đến n8n webhook
+        const aiMsg = await sendMessageToWebhook({
+          role: "user",
+          content: messageContent,
+          status: "sending",
+          type: messageType,
+          files: hasFiles ? fileDataArray : undefined,
+          userRole: USER_ROLE,
+        });
 
-          let aiContent = "";
-          if (hasText && hasFiles) {
-            aiContent = `Tôi đã nhận được tin nhắn: "${messageContent}" kèm theo ${fileCount} file${
-              fileCount > 1 ? "s" : ""
-            } (${(totalSize / 1024).toFixed(2)} KB).`;
-          } else if (hasFiles) {
-            aiContent = `Tôi đã nhận được ${fileCount} file${
-              fileCount > 1 ? "s" : ""
-            }: ${fileNames} (${(totalSize / 1024).toFixed(2)} KB).`;
-          } else {
-            aiContent = `Tôi đã nhận được: "${messageContent}". Thử hỏi tôi về "bảng" hoặc "biểu đồ"!`;
-          }
-
-          const aiMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: aiContent,
-            timestamp: new Date(),
-            status: "success",
-            type: "text",
-          };
-
+        if (aiMsg) {
           append(aiMsg);
-        }, 500);
-      }, 1000);
+        }
+      } catch (error) {
+        console.log(error);
+        // Nếu có lỗi, cập nhật status của user message thành error
+        replaceMessage(userMsg.id, (m) => ({
+          ...m,
+          status: "error" as const,
+        }));
+
+        // Thêm error message từ assistant
+        const errorMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại.",
+          timestamp: new Date(),
+          status: "error",
+          type: "text",
+        };
+        append(errorMsg);
+      }
     },
     [append, replaceMessage]
   );

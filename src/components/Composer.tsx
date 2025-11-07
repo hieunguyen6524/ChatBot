@@ -1,8 +1,15 @@
 import { Paperclip, Send, X, File } from "lucide-react";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 import VoiceControls from "./VoiceControls";
 import { MAX_FILES } from "@/config/env";
+
+// Đọc giới hạn dung lượng file từ env (đơn vị MB), mặc định 10MB
+const MAX_FILE_SIZE_MB = parseFloat(
+  import.meta.env.VITE_MAX_FILE_SIZE_MB || "10"
+);
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // Chuyển MB sang bytes
 
 type ComposerProps = {
   onSend: (content: string) => void;
@@ -79,31 +86,9 @@ function Composer({ onSend, onSendMessageWithFiles, onOpenVoice, voiceTranscript
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
   };
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    // Check giới hạn số file
-    const currentCount = selectedFiles.length;
-    const remainingSlots = MAX_FILES - currentCount;
-
-    if (remainingSlots <= 0) {
-      alert(`Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      return;
-    }
-
-    // Lấy số file có thể thêm (không vượt quá giới hạn)
-    const filesToAdd = Array.from(files).slice(0, remainingSlots);
-    
-    if (filesToAdd.length < files.length) {
-      alert(`Bạn chỉ có thể thêm tối đa ${remainingSlots} file nữa (tổng tối đa ${MAX_FILES} file).`);
-    }
-
+  const processValidFiles = useCallback((files: File[]) => {
     // Process files để tạo preview
-    const processFiles = filesToAdd.map((file): Promise<FileWithPreview> => {
+    const processFiles = files.map((file): Promise<FileWithPreview> => {
       return new Promise((resolve) => {
         if (file.type.startsWith("image/")) {
           const reader = new FileReader();
@@ -137,7 +122,72 @@ function Composer({ onSend, onSendMessageWithFiles, onOpenVoice, voiceTranscript
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, [selectedFiles.length]);
+  }, []);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Check giới hạn số file
+    const currentCount = selectedFiles.length;
+    const remainingSlots = MAX_FILES - currentCount;
+
+    if (remainingSlots <= 0) {
+      toast.error(`Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // Lấy số file có thể thêm (không vượt quá giới hạn)
+    const filesToAdd = Array.from(files).slice(0, remainingSlots);
+    
+    if (filesToAdd.length < files.length) {
+      toast(`Bạn chỉ có thể thêm tối đa ${remainingSlots} file nữa (tổng tối đa ${MAX_FILES} file).`, {
+        icon: "⚠️",
+      });
+    }
+
+    // Kiểm tra kích thước file
+    const oversizedFiles: File[] = [];
+    filesToAdd.forEach((file) => {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        oversizedFiles.push(file);
+      }
+    });
+
+    if (oversizedFiles.length > 0) {
+      const fileList = oversizedFiles.map((f) => 
+        `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`
+      ).join("\n");
+      toast.error(
+        `Các file sau vượt quá giới hạn ${MAX_FILE_SIZE_MB} MB:\n${fileList}\n\nVui lòng chọn file nhỏ hơn.`,
+        {
+          duration: 5000,
+        }
+      );
+      // Loại bỏ các file vượt quá giới hạn
+      const validFiles = filesToAdd.filter(
+        (file) => !oversizedFiles.includes(file)
+      );
+      if (validFiles.length === 0) {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+      // Tiếp tục xử lý với các file hợp lệ
+      if (validFiles.length < filesToAdd.length) {
+        toast.success(`Đã thêm ${validFiles.length} file hợp lệ.`);
+      }
+      processValidFiles(validFiles);
+      return;
+    }
+
+    // Xử lý các file hợp lệ
+    processValidFiles(filesToAdd);
+  }, [selectedFiles.length, processValidFiles]);
 
   const handleRemoveFile = useCallback((index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
