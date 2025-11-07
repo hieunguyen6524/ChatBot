@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { Message } from "@/types/chat.type";
-import { N8N_WEBHOOK_URL } from "@/config/env";
+import { N8N_WEBHOOK_URL, WEBHOOK_TIMEOUT } from "@/config/env";
 
 /**
  * Gửi message đến n8n webhook và nhận response
@@ -34,12 +34,19 @@ export const sendMessageToWebhook = async (
     }
 
     // Gửi request đến webhook
-    const response = await axios.post(N8N_WEBHOOK_URL, payload, {
+    // Nếu WEBHOOK_TIMEOUT = 0 thì không có timeout (chờ vô hạn)
+    const axiosConfig: any = {
       headers: {
         "Content-Type": "application/json",
       },
-      timeout: 30000, // 30 giây timeout
-    });
+    };
+    
+    // Chỉ set timeout nếu giá trị > 0
+    if (WEBHOOK_TIMEOUT > 0) {
+      axiosConfig.timeout = WEBHOOK_TIMEOUT;
+    }
+    
+    const response = await axios.post(N8N_WEBHOOK_URL, payload, axiosConfig);
 
     // Xử lý response từ webhook
     // N8N webhook có thể trả về data trong nhiều format:
