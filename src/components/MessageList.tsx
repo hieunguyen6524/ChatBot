@@ -29,14 +29,19 @@ function MessageList({ messages, onSpeak }: MessageListProps) {
     <div
       ref={scrollRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+      className="flex-1 overflow-y-auto px-0 py-4 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-600"
+      style={{
+        scrollBehavior: 'smooth',
+      }}
     >
-      <AnimatePresence>
-        {messages.map((message) => (
-          <MessageItem key={message.id} message={message} onSpeak={onSpeak} />
-        ))}
-      </AnimatePresence>
-    </div>
+     
+        <AnimatePresence mode="popLayout">
+          {messages.map((message, index) => (
+            <MessageItem key={index} message={message} onSpeak={onSpeak} />
+          ))}
+        </AnimatePresence>
+      </div>
+    
   );
 }
 

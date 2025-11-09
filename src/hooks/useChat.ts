@@ -2,9 +2,9 @@ import type { Message, FileData } from "@/types/chat.type";
 import { useCallback } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { sendMessageToWebhook } from "@/services/chatApi";
+import { USER_ROLE } from "@/config/env";
 
-// TODO: Sau này sẽ lấy từ BE, hiện tại fix cứng
-const USER_ROLE = "manager";
+
 
 // Đọc giới hạn dung lượng file từ env (đơn vị MB), mặc định 10MB
 const MAX_FILE_SIZE_MB = parseFloat(
@@ -46,8 +46,20 @@ export const useChat = () => {
         type: "text",
         userRole: USER_ROLE,
       };
-
       append(userMsg);
+
+      // Tạo typing indicator message ngay sau khi gửi user message
+      // Dùng timestamp + random để đảm bảo unique ID
+      const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const typingMsg: Message = {
+        id: typingMsgId,
+        role: "assistant",
+        content: "", // Empty content để hiển thị typing indicator
+        timestamp: new Date(),
+        status: "sending",
+        type: "text",
+      };
+      append(typingMsg);
 
       try {
         // Cập nhật status của user message thành success
@@ -65,8 +77,16 @@ export const useChat = () => {
           userRole: USER_ROLE,
         });
 
+        // Thay thế typing message bằng response thật
         if (aiMsg) {
-          append(aiMsg);
+          replaceMessage(typingMsgId, () => aiMsg);
+        } else {
+          // Nếu không có response, xóa typing message
+          replaceMessage(typingMsgId, (m) => ({
+            ...m,
+            status: "error" as const,
+            content: "Không nhận được phản hồi từ server.",
+          }));
         }
       } catch (error) {
         // Nếu có lỗi, cập nhật status của user message thành error
@@ -76,16 +96,12 @@ export const useChat = () => {
           status: "error" as const,
         }));
 
-        // Thêm error message từ assistant
-        const errorMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
+        // Thay thế typing message bằng error message
+        replaceMessage(typingMsgId, (m) => ({
+          ...m,
+          status: "error" as const,
           content: "Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại.",
-          timestamp: new Date(),
-          status: "error",
-          type: "text",
-        };
-        append(errorMsg);
+        }));
       }
     },
     [append, replaceMessage]
@@ -134,6 +150,18 @@ export const useChat = () => {
 
         append(userMsg);
 
+        // Tạo typing indicator message ngay sau khi gửi user message
+        const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const typingMsg: Message = {
+          id: typingMsgId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          status: "sending",
+          type: "text",
+        };
+        append(typingMsg);
+
         try {
           // Cập nhật status của user message thành success
           replaceMessage(userMsg.id, (m) => ({
@@ -151,8 +179,15 @@ export const useChat = () => {
             userRole: USER_ROLE,
           });
 
+          // Thay thế typing message bằng response thật
           if (aiMsg) {
-            append(aiMsg);
+            replaceMessage(typingMsgId, () => aiMsg);
+          } else {
+            replaceMessage(typingMsgId, (m) => ({
+              ...m,
+              status: "error" as const,
+              content: "Không nhận được phản hồi từ server.",
+            }));
           }
         } catch (error) {
           console.log(error);
@@ -216,6 +251,18 @@ export const useChat = () => {
 
         append(userMsg);
 
+        // Tạo typing indicator message
+        const typingMsgId = (Date.now() + 1).toString();
+        const typingMsg: Message = {
+          id: typingMsgId,
+          role: "assistant",
+          content: "",
+          timestamp: new Date(),
+          status: "sending",
+          type: "text",
+        };
+        append(typingMsg);
+
         (async () => {
           try {
             // Cập nhật status của user message thành success
@@ -234,8 +281,15 @@ export const useChat = () => {
               userRole: USER_ROLE,
             });
 
+            // Thay thế typing message bằng response thật
             if (aiMsg) {
-              append(aiMsg);
+              replaceMessage(typingMsgId, () => aiMsg);
+            } else {
+              replaceMessage(typingMsgId, (m) => ({
+                ...m,
+                status: "error" as const,
+                content: "Không nhận được phản hồi từ server.",
+              }));
             }
           } catch (error) {
             console.log(error);
@@ -245,16 +299,12 @@ export const useChat = () => {
               status: "error" as const,
             }));
 
-            // Thêm error message từ assistant
-            const errorMsg: Message = {
-              id: (Date.now() + 1).toString(),
-              role: "assistant",
+            // Thay thế typing message bằng error message
+            replaceMessage(typingMsgId, (m) => ({
+              ...m,
+              status: "error" as const,
               content: "Đã xảy ra lỗi khi xử lý file. Vui lòng thử lại.",
-              timestamp: new Date(),
-              status: "error",
-              type: "text",
-            };
-            append(errorMsg);
+            }));
           }
         })();
       }
@@ -352,6 +402,18 @@ export const useChat = () => {
 
       append(userMsg);
 
+      // Tạo typing indicator message ngay sau khi gửi user message
+      const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const typingMsg: Message = {
+        id: typingMsgId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+        status: "sending",
+        type: "text",
+      };
+      append(typingMsg);
+
       try {
         // Cập nhật status của user message thành success
         replaceMessage(userMsg.id, (m) => ({
@@ -369,8 +431,15 @@ export const useChat = () => {
           userRole: USER_ROLE,
         });
 
+        // Thay thế typing message bằng response thật
         if (aiMsg) {
-          append(aiMsg);
+          replaceMessage(typingMsgId, () => aiMsg);
+        } else {
+          replaceMessage(typingMsgId, (m) => ({
+            ...m,
+            status: "error" as const,
+            content: "Không nhận được phản hồi từ server.",
+          }));
         }
       } catch (error) {
         console.log(error);
@@ -380,16 +449,12 @@ export const useChat = () => {
           status: "error" as const,
         }));
 
-        // Thêm error message từ assistant
-        const errorMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
+        // Thay thế typing message bằng error message
+        replaceMessage(typingMsgId, (m) => ({
+          ...m,
+          status: "error" as const,
           content: "Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại.",
-          timestamp: new Date(),
-          status: "error",
-          type: "text",
-        };
-        append(errorMsg);
+        }));
       }
     },
     [append, replaceMessage]

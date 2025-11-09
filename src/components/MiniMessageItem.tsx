@@ -1,6 +1,7 @@
 import type { Message, FileData } from "@/types/chat.type";
 import { motion } from "framer-motion";
 import { File, Image as ImageIcon, Table, BarChart3, ExternalLink } from "lucide-react";
+import { TypingIndicator } from "./TypingIndicator";
 
 type MiniMessageItem = {
   message: Message;
@@ -24,7 +25,7 @@ function MiniMessageItem({ message, onMaximize }: MiniMessageItem) {
         }`}
       >
         {/* Table or Chart message - show notification with link to full chat */}
-        {(message.type === "table" || message.type === "chart") ? (
+        {(message.type === "table" || message.type === "chart") && message.content && message.content.trim() !== "" ? (
           <div className="space-y-3">
             {/* Text content */}
             {message.content && message.content.trim() && (
@@ -113,27 +114,34 @@ function MiniMessageItem({ message, onMaximize }: MiniMessageItem) {
               </p>
             </div>
           </div>
-        ) : (
+        ) : message.content && message.content.trim() !== "" ? (
           /* Text message only */
           <p className="text-sm whitespace-pre-wrap wrap-break-word leading-relaxed">
             {message.content}
           </p>
-        )}
-        <div className={`flex items-center gap-2 mt-1.5 ${isUser ? "flex-row-reverse" : ""}`}>
-          <span className="text-[10px] opacity-70 font-medium">
-            {new Date(message.timestamp).toLocaleTimeString("vi-VN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-          {message.status === "sending" && (
-            <span className="flex items-center gap-1">
-              <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
-              <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.2s]" />
-              <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.4s]" />
+        ) : !isUser && message.status === "sending" && (!message.content || message.content.trim() === "") ? (
+          /* Typing indicator - hiển thị khi đang chờ response từ assistant */
+          <TypingIndicator />
+        ) : null}
+        
+        {/* Chỉ hiển thị timestamp và controls khi không phải typing indicator */}
+        {!(!isUser && message.status === "sending" && (!message.content || message.content.trim() === "")) && (
+          <div className={`flex items-center gap-2 mt-1.5 ${isUser ? "flex-row-reverse" : ""}`}>
+            <span className="text-[10px] opacity-70 font-medium">
+              {new Date(message.timestamp).toLocaleTimeString("vi-VN", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
-          )}
-        </div>
+            {message.status === "sending" && message.content && message.content.trim() !== "" && (
+              <span className="flex items-center gap-1">
+                <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
+                <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.4s]" />
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </motion.div>
   );

@@ -12,7 +12,7 @@ import CustomAvatar from "@/components/CustomAvatar";
 function ChatPage() {
   const [theme, toggleTheme] = useTheme();
   const { messages, sendMessage, sendMessageWithFiles } = useChat();
-  const { voiceState, startRecording, stopRecording, speak, stopSpeaking } =
+  const { voiceState, startRecording, stopRecording, speak, stopSpeaking, setLanguage, language } =
     useVoice();
   const [showSiriInterface, setShowSiriInterface] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState<string>("");
@@ -52,13 +52,18 @@ function ChatPage() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      <header className="border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between bg-white dark:bg-gray-900">
-        <div className="flex items-center gap-3">
-          <CustomAvatar role="assistant" size="lg" />
+    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 text-gray-900 dark:text-gray-100">
+      <header className="border-b border-gray-200/80 dark:border-gray-800/80 px-6 py-4 flex items-center justify-between bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <CustomAvatar role="assistant" size="lg" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
+          </div>
           <div>
-            <h1 className="font-semibold text-lg">ChatBot AI</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <h1 className="font-bold text-xl bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+              ChatBot AI
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
               Trợ lý thông minh
             </p>
           </div>
@@ -76,16 +81,18 @@ function ChatPage() {
         onVoiceTranscriptProcessed={handleVoiceTranscriptProcessed}
       />
 
-      <AnimatePresence>
-        {showSiriInterface && (
-          <SiriVoiceInterface
-            voiceState={voiceState}
-            onClose={handleCloseVoice}
-            onStopRecording={handleStopRecording}
-            onStopSpeaking={stopSpeaking}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {showSiriInterface && (
+            <SiriVoiceInterface
+              voiceState={voiceState}
+              onClose={handleCloseVoice}
+              onStopRecording={handleStopRecording}
+              onStopSpeaking={stopSpeaking}
+              language={language}
+              onLanguageChange={setLanguage}
+            />
+          )}
+        </AnimatePresence>
     </div>
   );
 }

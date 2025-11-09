@@ -28,7 +28,6 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   const { messages, sendMessage, sendFile } = useChat();
 
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,16 +44,13 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
     if (!trimmed) return;
 
     // send via shared hook (store will update both mini and full chat)
+    // The typing indicator will be handled by the message status in the store
     sendMessage(trimmed);
 
     setInput("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-
-    // local typing indicator for mini UI
-    setIsTyping(true);
-    setTimeout(() => setIsTyping(false), 1500);
   }, [input, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -139,49 +135,6 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                   onMaximize={onMaximize}
                 />
               ))}
-
-              {/* Typing Indicator */}
-              {isTyping && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start mb-3"
-                >
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl px-4 py-3">
-                    <div className="flex gap-1">
-                      <motion.div
-                        className="w-2 h-2 bg-gray-400 rounded-full"
-                        animate={{ y: [0, -8, 0] }}
-                        transition={{
-                          duration: 0.6,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                      />
-                      <motion.div
-                        className="w-2 h-2 bg-gray-400 rounded-full"
-                        animate={{ y: [0, -8, 0] }}
-                        transition={{
-                          duration: 0.6,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: 0.2,
-                        }}
-                      />
-                      <motion.div
-                        className="w-2 h-2 bg-gray-400 rounded-full"
-                        animate={{ y: [0, -8, 0] }}
-                        transition={{
-                          duration: 0.6,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: 0.4,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
 
               <div ref={messagesEndRef} />
             </div>

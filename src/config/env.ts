@@ -10,3 +10,10 @@ export const WEBHOOK_TIMEOUT = timeoutEnv !== undefined
   ? (timeoutEnv === "0" ? 0 : parseInt(timeoutEnv, 10) || 30000)
   : 30000;
 
+// Mock data flag - chỉ dùng khi chỉnh UI, không gọi API thật
+// Set VITE_USE_MOCK_DATA=true để dùng mock data
+// Sau khi chỉnh UI xong, set về false hoặc xóa biến này
+export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === "true";
+
+export const USER_ROLE = import.meta.env.VITE_USER_ROLE || "sale";
+

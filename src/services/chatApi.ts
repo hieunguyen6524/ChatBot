@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { Message } from "@/types/chat.type";
-import { N8N_WEBHOOK_URL, WEBHOOK_TIMEOUT } from "@/config/env";
+import { N8N_WEBHOOK_URL, WEBHOOK_TIMEOUT, USE_MOCK_DATA } from "@/config/env";
+import { getMockResponse, simulateDelay } from "./mockData";
 
 /**
  * Gửi message đến n8n webhook và nhận response
@@ -11,6 +12,16 @@ export const sendMessageToWebhook = async (
   message: Omit<Message, "id" | "timestamp">
 ): Promise<Message | null> => {
   try {
+    // Nếu đang dùng mock data, trả về mock response
+    if (USE_MOCK_DATA) {
+      console.log("[MOCK MODE] Sử dụng mock data thay vì gọi API thật");
+      // Simulate delay giống như gọi API thật (1-2 giây)
+      await simulateDelay(1000 + Math.random() * 1000);
+      const mockResponse = getMockResponse(message.content);
+      return mockResponse;
+    }
+
+    // Gọi API thật
     if (!N8N_WEBHOOK_URL) {
       throw new Error("N8N_WEBHOOK_URL chưa được cấu hình");
     }
