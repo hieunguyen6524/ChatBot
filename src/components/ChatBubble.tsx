@@ -8,6 +8,7 @@ import {
   Send,
   Smile,
   Paperclip,
+  Square,
 } from "lucide-react";
 import MiniMessageItem from "./MiniMessageItem";
 import { useChat } from "@/hooks/useChat";
@@ -25,7 +26,7 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   onToggle,
   onMaximize,
 }) => {
-  const { messages, sendMessage, sendFile } = useChat();
+  const { messages, sendMessage, sendFile, isLoading, stop } = useChat();
 
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,6 +41,9 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
   }, [messages]);
 
   const handleSend = useCallback(() => {
+    // Không cho phép gửi khi đang loading
+    if (isLoading) return;
+
     const trimmed = input.trim();
     if (!trimmed) return;
 
@@ -51,12 +55,15 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [input, sendMessage]);
+  }, [input, sendMessage, isLoading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      // Không cho phép gửi khi đang loading
+      if (!isLoading) {
+        handleSend();
+      }
     }
   };
 
@@ -176,15 +183,26 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({
                   </button>
                 </div>
 
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={handleSend}
-                  disabled={!input.trim()}
-                  className="p-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Gửi"
-                >
-                  <Send className="w-4 h-4" />
-                </motion.button>
+                {isLoading ? (
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={stop}
+                    className="p-2.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                    aria-label="Dừng phản hồi"
+                  >
+                    <Square className="w-4 h-4" />
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleSend}
+                    disabled={!input.trim() || isLoading}
+                    className="p-2.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label="Gửi"
+                  >
+                    <Send className="w-4 h-4" />
+                  </motion.button>
+                )}
               </div>
             </div>
           </motion.div>

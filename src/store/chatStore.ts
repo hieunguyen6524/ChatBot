@@ -6,6 +6,7 @@ type ChatState = {
   messages: Message[];
   append: (message: Message) => void;
   replaceMessage: (id: string, updater: (message: Message) => Message) => void;
+  removeMessage: (id: string) => void;
   clear: () => void;
 };
 
@@ -60,6 +61,10 @@ export const useChatStore = create<ChatState>((set) => ({
   replaceMessage: (id, updater) =>
     set((state) => ({
       messages: state.messages.map((m) => (m.id === id ? updater(m) : m)),
+    })),
+  removeMessage: (id) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== id),
     })),
   clear: () => set({ messages: [] }),
 }));

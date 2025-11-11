@@ -6,17 +6,30 @@ import { getMockResponse, simulateDelay } from "./mockData";
 /**
  * Gửi message đến n8n webhook và nhận response
  * @param message Message từ user
+ * @param abortSignal Signal để hủy request
  * @returns Message response từ assistant hoặc null nếu có lỗi
  */
 export const sendMessageToWebhook = async (
-  message: Omit<Message, "id" | "timestamp">
+  message: Omit<Message, "id" | "timestamp">,
+  abortSignal?: AbortSignal
 ): Promise<Message | null> => {
   try {
     // Nếu đang dùng mock data, trả về mock response
     if (USE_MOCK_DATA) {
       console.log("[MOCK MODE] Sử dụng mock data thay vì gọi API thật");
       // Simulate delay giống như gọi API thật (1-2 giây)
-      await simulateDelay(1000 + Math.random() * 1000);
+      // Kiểm tra abort signal trong quá trình delay
+      const delay = 1000 + Math.random() * 1000;
+      const startTime = Date.now();
+      while (Date.now() - startTime < delay) {
+        if (abortSignal?.aborted) {
+          return null;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (abortSignal?.aborted) {
+        return null;
+      }
       const mockResponse = getMockResponse(message.content);
       return mockResponse;
     }
@@ -50,6 +63,7 @@ export const sendMessageToWebhook = async (
       headers: {
         "Content-Type": "application/json",
       },
+      signal: abortSignal, // Thêm AbortSignal để hủy request
     };
     
     // Chỉ set timeout nếu giá trị > 0
@@ -122,6 +136,12 @@ export const sendMessageToWebhook = async (
 
     return aiMessage;
   } catch (error) {
+    // Nếu request bị hủy, không tạo error message
+    if (axios.isCancel(error) || (error instanceof Error && error.name === 'AbortError')) {
+      console.log("Request đã bị hủy");
+      return null;
+    }
+
     console.error("Lỗi khi gửi message đến webhook:", error);
 
     // Tạo error message

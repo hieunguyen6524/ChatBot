@@ -1,5 +1,5 @@
 import type { Message, FileData } from "@/types/chat.type";
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { sendMessageToWebhook } from "@/services/chatApi";
 import { USER_ROLE } from "@/config/env";
@@ -34,9 +34,23 @@ export const useChat = () => {
   const messages = useChatStore((s) => s.messages);
   const append = useChatStore((s) => s.append);
   const replaceMessage = useChatStore((s) => s.replaceMessage);
+  const removeMessage = useChatStore((s) => s.removeMessage);
+  const [isLoading, setIsLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const typingMsgIdRef = useRef<string | null>(null);
 
   const sendMessage = useCallback(
     async (content: string) => {
+      // Hủy request trước đó nếu có
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Tạo AbortController mới
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      setIsLoading(true);
+
       const userMsg: Message = {
         id: Date.now().toString(),
         role: "user",
@@ -51,6 +65,7 @@ export const useChat = () => {
       // Tạo typing indicator message ngay sau khi gửi user message
       // Dùng timestamp + random để đảm bảo unique ID
       const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      typingMsgIdRef.current = typingMsgId;
       const typingMsg: Message = {
         id: typingMsgId,
         role: "assistant",
@@ -68,14 +83,23 @@ export const useChat = () => {
           status: "success" as const,
         }));
 
-        // Gửi message đến n8n webhook
+        // Gửi message đến n8n webhook với abort signal
         const aiMsg = await sendMessageToWebhook({
           role: "user",
           content,
           status: "sending",
           type: "text",
           userRole: USER_ROLE,
-        });
+        }, abortController.signal);
+
+        // Kiểm tra nếu request bị hủy
+        if (abortController.signal.aborted) {
+          // Xóa typing message nếu bị hủy
+          removeMessage(typingMsgId);
+          setIsLoading(false);
+          typingMsgIdRef.current = null;
+          return;
+        }
 
         // Thay thế typing message bằng response thật
         if (aiMsg) {
@@ -102,13 +126,26 @@ export const useChat = () => {
           status: "error" as const,
           content: "Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại.",
         }));
+      } finally {
+        setIsLoading(false);
+        abortControllerRef.current = null;
       }
     },
-    [append, replaceMessage]
+    [append, replaceMessage, removeMessage]
   );
 
   const sendFile = useCallback(
     async (file: File) => {
+      // Hủy request trước đó nếu có
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Tạo AbortController mới
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      setIsLoading(true);
+
       // Kiểm tra kích thước file
       const validation = validateFileSize(file);
       if (!validation.valid) {
@@ -122,12 +159,19 @@ export const useChat = () => {
           type: "text",
         };
         append(errorMsg);
+        setIsLoading(false);
+        abortControllerRef.current = null;
         return;
       }
 
       // Convert file to base64 for preview
       const reader = new FileReader();
       reader.onload = async (e) => {
+        if (abortController.signal.aborted) {
+          setIsLoading(false);
+          return;
+        }
+
         const dataUrl = e.target?.result as string;
 
         const fileData: FileData = {
@@ -152,6 +196,7 @@ export const useChat = () => {
 
         // Tạo typing indicator message ngay sau khi gửi user message
         const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        typingMsgIdRef.current = typingMsgId;
         const typingMsg: Message = {
           id: typingMsgId,
           role: "assistant",
@@ -169,7 +214,7 @@ export const useChat = () => {
             status: "success" as const,
           }));
 
-          // Gửi file message đến n8n webhook
+          // Gửi file message đến n8n webhook với abort signal
           const aiMsg = await sendMessageToWebhook({
             role: "user",
             content: `Đã gửi file: ${file.name}`,
@@ -177,7 +222,16 @@ export const useChat = () => {
             type: "file",
             data: fileData,
             userRole: USER_ROLE,
-          });
+          }, abortController.signal);
+
+          // Kiểm tra nếu request bị hủy
+          if (abortController.signal.aborted) {
+            removeMessage(typingMsgId);
+            setIsLoading(false);
+            abortControllerRef.current = null;
+            typingMsgIdRef.current = null;
+            return;
+          }
 
           // Thay thế typing message bằng response thật
           if (aiMsg) {
@@ -207,6 +261,10 @@ export const useChat = () => {
             type: "text",
           };
           append(errorMsg);
+        } finally {
+          setIsLoading(false);
+          abortControllerRef.current = null;
+          typingMsgIdRef.current = null;
         }
       };
 
@@ -253,6 +311,7 @@ export const useChat = () => {
 
         // Tạo typing indicator message
         const typingMsgId = (Date.now() + 1).toString();
+        typingMsgIdRef.current = typingMsgId;
         const typingMsg: Message = {
           id: typingMsgId,
           role: "assistant",
@@ -271,7 +330,7 @@ export const useChat = () => {
               status: "success" as const,
             }));
 
-            // Gửi file message đến n8n webhook
+            // Gửi file message đến n8n webhook với abort signal
             const aiMsg = await sendMessageToWebhook({
               role: "user",
               content: `Đã gửi file: ${file.name}`,
@@ -279,7 +338,19 @@ export const useChat = () => {
               type: "file",
               data: fileData,
               userRole: USER_ROLE,
-            });
+            }, abortController.signal);
+
+            // Kiểm tra nếu request bị hủy
+            if (abortController.signal.aborted) {
+              replaceMessage(typingMsgId, (m) => ({
+                ...m,
+                status: "error" as const,
+                content: "",
+              }));
+              setIsLoading(false);
+              abortControllerRef.current = null;
+              return;
+            }
 
             // Thay thế typing message bằng response thật
             if (aiMsg) {
@@ -305,15 +376,29 @@ export const useChat = () => {
               status: "error" as const,
               content: "Đã xảy ra lỗi khi xử lý file. Vui lòng thử lại.",
             }));
+          } finally {
+            setIsLoading(false);
+            abortControllerRef.current = null;
+            typingMsgIdRef.current = null;
           }
         })();
       }
     },
-    [append, replaceMessage]
+    [append, replaceMessage, removeMessage]
   );
 
   const sendMessageWithFiles = useCallback(
     async (content: string, files: File[]) => {
+      // Hủy request trước đó nếu có
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // Tạo AbortController mới
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      setIsLoading(true);
+
       // Kiểm tra kích thước của tất cả files
       const invalidFiles: { file: File; error: string }[] = [];
       files.forEach((file) => {
@@ -335,6 +420,8 @@ export const useChat = () => {
           type: "text",
         };
         append(errorMsg);
+        setIsLoading(false);
+        abortControllerRef.current = null;
         return;
       }
 
@@ -404,6 +491,7 @@ export const useChat = () => {
 
       // Tạo typing indicator message ngay sau khi gửi user message
       const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      typingMsgIdRef.current = typingMsgId;
       const typingMsg: Message = {
         id: typingMsgId,
         role: "assistant",
@@ -421,7 +509,7 @@ export const useChat = () => {
           status: "success" as const,
         }));
 
-        // Gửi message với files đến n8n webhook
+        // Gửi message với files đến n8n webhook với abort signal
         const aiMsg = await sendMessageToWebhook({
           role: "user",
           content: messageContent,
@@ -429,7 +517,16 @@ export const useChat = () => {
           type: messageType,
           files: hasFiles ? fileDataArray : undefined,
           userRole: USER_ROLE,
-        });
+        }, abortController.signal);
+
+        // Kiểm tra nếu request bị hủy
+        if (abortController.signal.aborted) {
+          removeMessage(typingMsgId);
+          setIsLoading(false);
+          abortControllerRef.current = null;
+          typingMsgIdRef.current = null;
+          return;
+        }
 
         // Thay thế typing message bằng response thật
         if (aiMsg) {
@@ -455,10 +552,33 @@ export const useChat = () => {
           status: "error" as const,
           content: "Đã xảy ra lỗi khi xử lý tin nhắn. Vui lòng thử lại.",
         }));
+      } finally {
+        setIsLoading(false);
+        abortControllerRef.current = null;
+        typingMsgIdRef.current = null;
       }
     },
-    [append, replaceMessage]
+    [append, replaceMessage, removeMessage]
   );
 
-  return { messages, sendMessage, sendFile, sendMessageWithFiles };
+  const stop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+      
+      // Xóa typing message nếu có
+      if (typingMsgIdRef.current) {
+        const messages = useChatStore.getState().messages;
+        const typingMsg = messages.find(m => m.id === typingMsgIdRef.current);
+        if (typingMsg && typingMsg.content === "" && typingMsg.status === "sending") {
+          // Xóa typing message hoàn toàn khỏi UI
+          removeMessage(typingMsgIdRef.current);
+        }
+        typingMsgIdRef.current = null;
+      }
+    }
+  }, [removeMessage]);
+
+  return { messages, sendMessage, sendFile, sendMessageWithFiles, isLoading, stop };
 };
