@@ -8,7 +8,6 @@ type SiriVoiceInterfaceProps = {
   onClose: () => void;
   onStopRecording: () => void;
   onStopSpeaking: () => void;
-  onStartRecording?: () => void;
   language: LanguageCode;
   onLanguageChange: (language: LanguageCode) => void;
 };
@@ -17,7 +16,6 @@ function SiriVoiceInterface({
   voiceState,
   onClose,
   onStopRecording,
-  onStartRecording,
   language,
   onLanguageChange,
 }: SiriVoiceInterfaceProps) {
@@ -25,7 +23,6 @@ function SiriVoiceInterface({
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
   const languageMenuRef = useRef<HTMLDivElement>(null);
-  const languageMenuJustClosedRef = useRef<boolean>(false);
 
   const languages: { code: LanguageCode; label: string; flag: string }[] = [
     { code: "auto", label: "Tự động", flag: "🌐" },
@@ -80,39 +77,13 @@ function SiriVoiceInterface({
       }
     };
   }, [voiceState.isRecording]);
-  const handleBackgroundClick = (e: React.MouseEvent) => {
-    // Bỏ qua click nếu vừa đóng language menu (tránh click event bubble)
-    if (languageMenuJustClosedRef.current) {
-      languageMenuJustClosedRef.current = false;
-      return;
-    }
-    
-    // Chỉ đóng nếu click vào background, không phải vào orb area
-    if (e.target === e.currentTarget) {
-      if (voiceState.isRecording) {
-        onStopRecording();
-      } else {
-        onClose();
-      }
-    }
-  };
-
-  const handleOrbClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (voiceState.isRecording) {
-      onStopRecording();
-    } else if (onStartRecording) {
-      onStartRecording();
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-black/90 via-gray-900/95 to-black/90 backdrop-blur-2xl"
-      onClick={handleBackgroundClick}
+      onClick={voiceState.isRecording ? onStopRecording : onClose}
     >
       <div className="flex flex-col items-center gap-8">
         {/* Siri Orb Animation */}
@@ -174,8 +145,7 @@ function SiriVoiceInterface({
 
           {/* Main orb - giống Siri iPhone */}
           <motion.div
-            className="relative w-36 h-36 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-cyan-500 shadow-2xl flex items-center justify-center overflow-hidden cursor-pointer"
-            onClick={handleOrbClick}
+            className="relative w-36 h-36 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-cyan-500 shadow-2xl flex items-center justify-center overflow-hidden"
             animate={
               voiceState.isRecording
                 ? {
@@ -364,12 +334,6 @@ function SiriVoiceInterface({
                         e.stopPropagation();
                         onLanguageChange(lang.code);
                         setShowLanguageMenu(false);
-                        // Đánh dấu vừa đóng menu để tránh click event bubble
-                        languageMenuJustClosedRef.current = true;
-                        // Reset flag sau một khoảng thời gian ngắn
-                        setTimeout(() => {
-                          languageMenuJustClosedRef.current = false;
-                        }, 100);
                       }}
                       className={`w-full px-5 py-3 text-left text-white text-sm hover:bg-white/20 
                       transition-all flex items-center gap-3 ${

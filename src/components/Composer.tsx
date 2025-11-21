@@ -1,4 +1,4 @@
-import { Paperclip, Send, X, File, Square } from "lucide-react";
+import { Paperclip, Send, X, File } from "lucide-react";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -17,10 +17,6 @@ type ComposerProps = {
   onOpenVoice: () => void;
   voiceTranscript?: string; // Transcript từ voice để hiển thị trong input
   onVoiceTranscriptProcessed?: () => void; // Callback khi đã xử lý transcript
-  isLoading?: boolean; // Trạng thái đang chờ phản hồi
-  onStop?: () => void; // Hàm để dừng request đang chờ
-  droppedFiles?: File[]; // Files được kéo thả vào chat area
-  onDroppedFilesProcessed?: () => void; // Callback khi đã xử lý dropped files
 };
 
 interface FileWithPreview {
@@ -28,17 +24,7 @@ interface FileWithPreview {
   preview: string | null;
 }
 
-function Composer({
-  onSend,
-  onSendMessageWithFiles,
-  onOpenVoice,
-  voiceTranscript,
-  onVoiceTranscriptProcessed,
-  isLoading = false,
-  onStop,
-  droppedFiles,
-  onDroppedFilesProcessed,
-}: ComposerProps) {
+function Composer({ onSend, onSendMessageWithFiles, onOpenVoice, voiceTranscript, onVoiceTranscriptProcessed }: ComposerProps) {
   const [input, setInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -52,8 +38,7 @@ function Composer({
       if (textareaRef.current) {
         textareaRef.current.focus();
         textareaRef.current.style.height = "auto";
-        textareaRef.current.style.height =
-          Math.min(textareaRef.current.scrollHeight, 200) + "px";
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
       }
       // Notify parent đã xử lý transcript
       if (onVoiceTranscriptProcessed) {
@@ -63,22 +48,19 @@ function Composer({
   }, [voiceTranscript, onVoiceTranscriptProcessed]);
 
   const handleSend = useCallback(() => {
-    // Không cho phép gửi khi đang loading
-    if (isLoading) return;
-
     const hasText = input.trim().length > 0;
     const hasFiles = selectedFiles.length > 0;
-
+    
     if (hasText || hasFiles) {
       // Gửi text và files trong cùng 1 message
       if (hasFiles && onSendMessageWithFiles) {
-        const files = selectedFiles.map((f) => f.file);
+        const files = selectedFiles.map(f => f.file);
         onSendMessageWithFiles(input.trim(), files);
       } else if (hasText) {
         // Chỉ gửi text nếu không có file
         onSend(input.trim());
       }
-
+      
       // Reset
       setInput("");
       setSelectedFiles([]);
@@ -89,15 +71,12 @@ function Composer({
         fileInputRef.current.value = "";
       }
     }
-  }, [input, selectedFiles, onSend, onSendMessageWithFiles, isLoading]);
+  }, [input, selectedFiles, onSend, onSendMessageWithFiles]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // Không cho phép gửi khi đang loading
-      if (!isLoading) {
-        handleSend();
-      }
+      handleSend();
     }
   };
 
@@ -145,155 +124,70 @@ function Composer({
     }
   }, []);
 
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-      // Check giới hạn số file
-      const currentCount = selectedFiles.length;
-      const remainingSlots = MAX_FILES - currentCount;
+    // Check giới hạn số file
+    const currentCount = selectedFiles.length;
+    const remainingSlots = MAX_FILES - currentCount;
 
-      if (remainingSlots <= 0) {
-        toast.error(
-          `Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`
-        );
+    if (remainingSlots <= 0) {
+      toast.error(`Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    // Lấy số file có thể thêm (không vượt quá giới hạn)
+    const filesToAdd = Array.from(files).slice(0, remainingSlots);
+    
+    if (filesToAdd.length < files.length) {
+      toast(`Bạn chỉ có thể thêm tối đa ${remainingSlots} file nữa (tổng tối đa ${MAX_FILES} file).`, {
+        icon: "⚠️",
+      });
+    }
+
+    // Kiểm tra kích thước file
+    const oversizedFiles: File[] = [];
+    filesToAdd.forEach((file) => {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        oversizedFiles.push(file);
+      }
+    });
+
+    if (oversizedFiles.length > 0) {
+      const fileList = oversizedFiles.map((f) => 
+        `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`
+      ).join("\n");
+      toast.error(
+        `Các file sau vượt quá giới hạn ${MAX_FILE_SIZE_MB} MB:\n${fileList}\n\nVui lòng chọn file nhỏ hơn.`,
+        {
+          duration: 5000,
+        }
+      );
+      // Loại bỏ các file vượt quá giới hạn
+      const validFiles = filesToAdd.filter(
+        (file) => !oversizedFiles.includes(file)
+      );
+      if (validFiles.length === 0) {
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
         return;
       }
-
-      // Lấy số file có thể thêm (không vượt quá giới hạn)
-      const filesToAdd = Array.from(files).slice(0, remainingSlots);
-
-      if (filesToAdd.length < files.length) {
-        toast(
-          `Bạn chỉ có thể thêm tối đa ${remainingSlots} file nữa (tổng tối đa ${MAX_FILES} file).`,
-          {
-            icon: "⚠️",
-          }
-        );
+      // Tiếp tục xử lý với các file hợp lệ
+      if (validFiles.length < filesToAdd.length) {
+        toast.success(`Đã thêm ${validFiles.length} file hợp lệ.`);
       }
-
-      // Kiểm tra kích thước file
-      const oversizedFiles: File[] = [];
-      filesToAdd.forEach((file) => {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-          oversizedFiles.push(file);
-        }
-      });
-
-      if (oversizedFiles.length > 0) {
-        const fileList = oversizedFiles
-          .map((f) => `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`)
-          .join("\n");
-        toast.error(
-          `Các file sau vượt quá giới hạn ${MAX_FILE_SIZE_MB} MB:\n${fileList}\n\nVui lòng chọn file nhỏ hơn.`,
-          {
-            duration: 5000,
-          }
-        );
-        // Loại bỏ các file vượt quá giới hạn
-        const validFiles = filesToAdd.filter(
-          (file) => !oversizedFiles.includes(file)
-        );
-        if (validFiles.length === 0) {
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-          return;
-        }
-        // Tiếp tục xử lý với các file hợp lệ
-        if (validFiles.length < filesToAdd.length) {
-          toast.success(`Đã thêm ${validFiles.length} file hợp lệ.`);
-        }
-        processValidFiles(validFiles);
-        return;
-      }
-
-      // Xử lý các file hợp lệ
-      processValidFiles(filesToAdd);
-    },
-    [selectedFiles.length, processValidFiles]
-  );
-
-  // Xử lý files được kéo thả vào chat area
-  useEffect(() => {
-    if (droppedFiles && droppedFiles.length > 0) {
-      // Kiểm tra số lượng file
-      const currentCount = selectedFiles.length;
-      const remainingSlots = MAX_FILES - currentCount;
-
-      if (remainingSlots <= 0) {
-        toast.error(
-          `Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`
-        );
-        if (onDroppedFilesProcessed) {
-          onDroppedFilesProcessed();
-        }
-        return;
-      }
-
-      const filesToAdd = droppedFiles.slice(0, remainingSlots);
-
-      if (filesToAdd.length < droppedFiles.length) {
-        toast(
-          `Bạn chỉ có thể thêm tối đa ${remainingSlots} file nữa (tổng tối đa ${MAX_FILES} file).`,
-          {
-            icon: "⚠️",
-          }
-        );
-      }
-
-      // Kiểm tra kích thước file
-      const oversizedFiles: File[] = [];
-      filesToAdd.forEach((file) => {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-          oversizedFiles.push(file);
-        }
-      });
-
-      if (oversizedFiles.length > 0) {
-        const fileList = oversizedFiles
-          .map((f) => `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`)
-          .join("\n");
-        toast.error(
-          `Các file sau vượt quá giới hạn ${MAX_FILE_SIZE_MB} MB:\n${fileList}\n\nVui lòng chọn file nhỏ hơn.`,
-          {
-            duration: 5000,
-          }
-        );
-        const validFiles = filesToAdd.filter(
-          (file) => !oversizedFiles.includes(file)
-        );
-        if (validFiles.length === 0) {
-          if (onDroppedFilesProcessed) {
-            onDroppedFilesProcessed();
-          }
-          return;
-        }
-        if (validFiles.length < filesToAdd.length) {
-          toast.success(`Đã thêm ${validFiles.length} file hợp lệ.`);
-        }
-        processValidFiles(validFiles);
-        if (onDroppedFilesProcessed) {
-          onDroppedFilesProcessed();
-        }
-        return;
-      }
-
-      processValidFiles(filesToAdd);
-      if (onDroppedFilesProcessed) {
-        onDroppedFilesProcessed();
-      }
+      processValidFiles(validFiles);
+      return;
     }
-  }, [
-    droppedFiles,
-    selectedFiles.length,
-    processValidFiles,
-    onDroppedFilesProcessed,
-  ]);
+
+    // Xử lý các file hợp lệ
+    processValidFiles(filesToAdd);
+  }, [selectedFiles.length, processValidFiles]);
 
   const handleRemoveFile = useCallback((index: number) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
@@ -303,98 +197,16 @@ function Composer({
     fileInputRef.current?.click();
   }, []);
 
-  // Xử lý paste ảnh từ clipboard
-  const handlePaste = useCallback(
-    async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-
-      const imageFiles: File[] = [];
-
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.type.indexOf("image") !== -1) {
-          const file = item.getAsFile();
-          if (file) {
-            imageFiles.push(file);
-          }
-        }
-      }
-
-      if (imageFiles.length > 0) {
-        e.preventDefault();
-
-        // Kiểm tra số lượng file
-        const currentCount = selectedFiles.length;
-        const remainingSlots = MAX_FILES - currentCount;
-
-        if (remainingSlots <= 0) {
-          toast.error(
-            `Bạn chỉ có thể gửi tối đa ${MAX_FILES} file mỗi tin nhắn.`
-          );
-          return;
-        }
-
-        const filesToAdd = imageFiles.slice(0, remainingSlots);
-
-        if (filesToAdd.length < imageFiles.length) {
-          toast(
-            `Bạn chỉ có thể thêm tối đa ${remainingSlots} ảnh nữa (tổng tối đa ${MAX_FILES} file).`,
-            {
-              icon: "⚠️",
-            }
-          );
-        }
-
-        // Kiểm tra kích thước file
-        const oversizedFiles: File[] = [];
-        filesToAdd.forEach((file) => {
-          if (file.size > MAX_FILE_SIZE_BYTES) {
-            oversizedFiles.push(file);
-          }
-        });
-
-        if (oversizedFiles.length > 0) {
-          const fileList = oversizedFiles
-            .map(
-              (f) => `• ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`
-            )
-            .join("\n");
-          toast.error(
-            `Các ảnh sau vượt quá giới hạn ${MAX_FILE_SIZE_MB} MB:\n${fileList}\n\nVui lòng chọn ảnh nhỏ hơn.`,
-            {
-              duration: 5000,
-            }
-          );
-          const validFiles = filesToAdd.filter(
-            (file) => !oversizedFiles.includes(file)
-          );
-          if (validFiles.length === 0) return;
-          if (validFiles.length < filesToAdd.length) {
-            toast.success(`Đã thêm ${validFiles.length} ảnh hợp lệ.`);
-          }
-          processValidFiles(validFiles);
-          return;
-        }
-
-        processValidFiles(filesToAdd);
-        toast.success(`Đã dán ${filesToAdd.length} ảnh`);
-      }
-    },
-    [selectedFiles.length, processValidFiles]
-  );
-
   return (
     <div className="border-t border-gray-200/80 dark:border-gray-800/80 p-4 sm:p-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl shadow-lg shadow-gray-900/5 dark:shadow-gray-900/20">
-      <div className="flex items-center gap-3">
+      <div className="flex items-end gap-3">
         <div className="flex-1 flex items-end gap-2 bg-gray-50 dark:bg-gray-800/50 rounded-3xl px-5 py-3 border border-gray-200/50 dark:border-gray-700/50 shadow-inner focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500/30 transition-all">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder="Nhập tin nhắn... (hoặc dán ảnh)"
+            placeholder="Nhập tin nhắn..."
             className="flex-1 bg-transparent resize-none outline-none max-h-[200px] py-1 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-[15px] leading-relaxed"
             rows={1}
           />
@@ -418,32 +230,18 @@ function Composer({
 
         <VoiceControls onOpenVoice={onOpenVoice} />
 
-        {isLoading ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-            onClick={onStop}
-            className="p-3.5 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 transition-all duration-200"
-            aria-label="Dừng phản hồi"
-          >
-            <Square className="w-5 h-5" />
-          </motion.button>
-        ) : (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-            onClick={handleSend}
-            disabled={
-              (!input.trim() && selectedFiles.length === 0) || isLoading
-            }
-            className="p-3.5 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
-            aria-label="Gửi tin nhắn"
-          >
-            <Send className="w-5 h-5" />
-          </motion.button>
-        )}
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.05 }}
+          onClick={handleSend}
+          disabled={!input.trim() && selectedFiles.length === 0}
+          className="p-3.5 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+          aria-label="Gửi tin nhắn"
+        >
+          <Send className="w-5 h-5" />
+        </motion.button>
       </div>
-
+      
       {/* Files Preview */}
       {selectedFiles.length > 0 && (
         <motion.div
@@ -454,8 +252,7 @@ function Composer({
         >
           <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-3 px-1">
             <span className="font-semibold">
-              {selectedFiles.length} / {MAX_FILES} file
-              {selectedFiles.length > 1 ? "s" : ""}
+              {selectedFiles.length} / {MAX_FILES} file{selectedFiles.length > 1 ? "s" : ""}
             </span>
             <button
               onClick={() => {
@@ -494,7 +291,7 @@ function Composer({
                     )}
                     <button
                       onClick={() => handleRemoveFile(index)}
-                      className="absolute top-0.5 right-0.5 p-1 bg-red-500 hover:bg-red-600 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                      className="absolute -top-2 -right-2 p-1.5 bg-red-500 hover:bg-red-600 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
                       aria-label="Xóa file"
                     >
                       <X className="w-3.5 h-3.5 text-white" />
@@ -505,14 +302,11 @@ function Composer({
                       {fileWithPreview.file.name}
                     </p>
                     <p className="text-[9px] text-gray-500 dark:text-gray-500 text-center mt-1">
-                      {fileWithPreview.file.size < 1024
+                      {fileWithPreview.file.size < 1024 
                         ? `${fileWithPreview.file.size} B`
                         : fileWithPreview.file.size < 1024 * 1024
                         ? `${(fileWithPreview.file.size / 1024).toFixed(1)} KB`
-                        : `${(
-                            fileWithPreview.file.size /
-                            (1024 * 1024)
-                          ).toFixed(1)} MB`}
+                        : `${(fileWithPreview.file.size / (1024 * 1024)).toFixed(1)} MB`}
                     </p>
                   </div>
                 </motion.div>
