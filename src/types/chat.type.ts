@@ -29,5 +29,7 @@ export interface FileData {
   size: number;
   type: string;
   url?: string; // URL for preview/download
-  dataUrl?: string; // Base64 data URL for images
+  dataUrl?: string; // Base64 data URL for images (chỉ để preview trong UI)
+  driveLink?: string; // Google Drive shareable link
+  driveFileId?: string; // Google Drive file ID
 }

@@ -2,7 +2,9 @@ import type { Message, FileData } from "@/types/chat.type";
 import { useCallback } from "react";
 import { useChatStore } from "@/store/chatStore";
 import { sendMessageToWebhook } from "@/services/chatApi";
+import { uploadFileToGoogleDrive } from "@/services/googleDriveService";
 import { USER_ROLE } from "@/config/env";
+import toast from "react-hot-toast";
 
 
 
@@ -125,7 +127,27 @@ export const useChat = () => {
         return;
       }
 
-      // Convert file to base64 for preview
+      // Upload file lên Google Drive trước
+      let driveLink: string | undefined;
+      let driveFileId: string | undefined;
+
+      try {
+        toast.loading("Đang upload file lên Google Drive...", { id: "upload-file" });
+        const driveResult = await uploadFileToGoogleDrive(file);
+        driveLink = driveResult.webViewLink;
+        driveFileId = driveResult.fileId;
+        toast.success("Upload file thành công!", { id: "upload-file" });
+      } catch (error) {
+        console.error("[useChat] Lỗi khi upload file lên Google Drive:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Lỗi khi upload file lên Google Drive. Vui lòng thử lại.";
+        toast.error(errorMessage, { id: "upload-file", duration: 5000 });
+        return;
+      }
+
+      // Convert file to base64 for preview (chỉ để hiển thị trong UI)
       const reader = new FileReader();
       reader.onload = async (e) => {
         const dataUrl = e.target?.result as string;
@@ -134,7 +156,9 @@ export const useChat = () => {
           name: file.name,
           size: file.size,
           type: file.type,
-          dataUrl: file.type.startsWith("image/") ? dataUrl : undefined,
+          dataUrl: file.type.startsWith("image/") ? dataUrl : undefined, // Chỉ để preview
+          driveLink: driveLink, // Link Google Drive
+          driveFileId: driveFileId, // File ID trên Google Drive
         };
 
         const userMsg: Message = {
@@ -169,13 +193,20 @@ export const useChat = () => {
             status: "success" as const,
           }));
 
-          // Gửi file message đến n8n webhook
+          // Gửi file message đến n8n webhook - CHỈ GỬI LINK GOOGLE DRIVE
           const aiMsg = await sendMessageToWebhook({
             role: "user",
             content: `Đã gửi file: ${file.name}`,
             status: "sending",
             type: "file",
-            data: fileData,
+            data: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              driveLink: driveLink,
+              driveFileId: driveFileId,
+              // KHÔNG gửi dataUrl
+            },
             userRole: USER_ROLE,
           });
 
@@ -338,11 +369,27 @@ export const useChat = () => {
         return;
       }
 
-      // Process all files to get FileData
+      // Upload tất cả files lên Google Drive và process để get FileData
       const processFiles = async (): Promise<FileData[]> => {
-        const fileDataPromises = files.map((file): Promise<FileData> => {
-          return new Promise((resolve) => {
-            if (file.type.startsWith("image/")) {
+        toast.loading(`Đang upload ${files.length} file lên Google Drive...`, { id: "upload-files" });
+        
+        const fileDataPromises = files.map(async (file): Promise<FileData> => {
+          // Upload file lên Google Drive
+          let driveLink: string | undefined;
+          let driveFileId: string | undefined;
+
+          try {
+            const driveResult = await uploadFileToGoogleDrive(file);
+            driveLink = driveResult.webViewLink;
+            driveFileId = driveResult.fileId;
+          } catch (error) {
+            console.error(`[useChat] Lỗi khi upload file ${file.name}:`, error);
+            throw error;
+          }
+
+          // Process preview cho images (chỉ để hiển thị trong UI)
+          if (file.type.startsWith("image/")) {
+            return new Promise((resolve) => {
               const reader = new FileReader();
               reader.onload = (e) => {
                 const dataUrl = e.target?.result as string;
@@ -350,7 +397,9 @@ export const useChat = () => {
                   name: file.name,
                   size: file.size,
                   type: file.type,
-                  dataUrl,
+                  dataUrl, // Chỉ để preview
+                  driveLink: driveLink,
+                  driveFileId: driveFileId,
                 });
               };
               reader.onerror = () => {
@@ -358,19 +407,35 @@ export const useChat = () => {
                   name: file.name,
                   size: file.size,
                   type: file.type,
+                  driveLink: driveLink,
+                  driveFileId: driveFileId,
                 });
               };
               reader.readAsDataURL(file);
-            } else {
-              resolve({
-                name: file.name,
-                size: file.size,
-                type: file.type,
-              });
-            }
-          });
+            });
+          } else {
+            return {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              driveLink: driveLink,
+              driveFileId: driveFileId,
+            };
+          }
         });
-        return Promise.all(fileDataPromises);
+
+        try {
+          const fileDataArray = await Promise.all(fileDataPromises);
+          toast.success(`Đã upload ${fileDataArray.length} file thành công!`, { id: "upload-files" });
+          return fileDataArray;
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Lỗi khi upload files lên Google Drive. Vui lòng thử lại.";
+          toast.error(errorMessage, { id: "upload-files", duration: 5000 });
+          throw error;
+        }
       };
 
       const fileDataArray = await processFiles();
@@ -421,13 +486,24 @@ export const useChat = () => {
           status: "success" as const,
         }));
 
-        // Gửi message với files đến n8n webhook
+        // Gửi message với files đến n8n webhook - CHỈ GỬI LINK GOOGLE DRIVE
+        const filesForWebhook = hasFiles
+          ? fileDataArray.map((f) => ({
+              name: f.name,
+              size: f.size,
+              type: f.type,
+              driveLink: f.driveLink,
+              driveFileId: f.driveFileId,
+              // KHÔNG gửi dataUrl
+            }))
+          : undefined;
+
         const aiMsg = await sendMessageToWebhook({
           role: "user",
           content: messageContent,
           status: "sending",
           type: messageType,
-          files: hasFiles ? fileDataArray : undefined,
+          files: filesForWebhook,
           userRole: USER_ROLE,
         });
 

@@ -34,14 +34,28 @@ export const sendMessageToWebhook = async (
       type: message.type || "text",
     };
 
-    // Thêm files nếu có
+    // Thêm files nếu có - CHỈ GỬI LINK GOOGLE DRIVE, KHÔNG GỬI FILE DATA
     if (message.files && message.files.length > 0) {
-      payload.files = message.files;
+      payload.files = message.files.map((f) => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        driveLink: f.driveLink,
+        driveFileId: f.driveFileId,
+        // KHÔNG gửi dataUrl hoặc file data
+      }));
     }
 
-    // Thêm data nếu có (cho file message)
+    // Thêm data nếu có (cho file message) - CHỈ GỬI LINK GOOGLE DRIVE
     if (message.data) {
-      payload.data = message.data;
+      payload.data = {
+        name: message.data.name,
+        size: message.data.size,
+        type: message.data.type,
+        driveLink: message.data.driveLink,
+        driveFileId: message.data.driveFileId,
+        // KHÔNG gửi dataUrl hoặc file data
+      };
     }
 
     // Gửi request đến webhook

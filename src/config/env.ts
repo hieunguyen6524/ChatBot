@@ -32,3 +32,13 @@ export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === "true";
 
 export const USER_ROLE = import.meta.env.VITE_USER_ROLE || "sale";
 
+// Google Drive API configuration
+// Folder ID để upload file (từ Google Drive folder URL)
+// Ví dụ: https://drive.google.com/drive/folders/1Wu2quY7SGIYusK1v7JyizXKMUaHp2l3V
+// Folder ID là: 1Wu2quY7SGIYusK1v7JyizXKMUaHp2l3V
+export const GOOGLE_DRIVE_FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID || "1Wu2quY7SGIYusK1v7JyizXKMUaHp2l3V";
+
+// Google OAuth2 Access Token để upload file
+// Có thể lấy từ OAuth2 flow hoặc set từ env
+export const GOOGLE_DRIVE_ACCESS_TOKEN = import.meta.env.VITE_GOOGLE_DRIVE_ACCESS_TOKEN || "";
+
