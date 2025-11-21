@@ -7,6 +7,7 @@ import SiriVoiceInterface from "@/components/SiriVoiceInterface";
 import { useTheme } from "@/hooks/useTheme";
 import { useChat } from "@/hooks/useChat";
 import { useVoice } from "@/hooks/useVoice";
+import { usePushMessages } from "@/hooks/usePushMessages";
 import CustomAvatar from "@/components/CustomAvatar";
 
 function ChatPage() {
@@ -24,6 +25,9 @@ function ChatPage() {
   const [showSiriInterface, setShowSiriInterface] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState<string>("");
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+
+  // Kết nối để nhận push messages từ n8n
+  usePushMessages(true);
 
   const handleOpenVoice = useCallback(() => {
     setShowSiriInterface(true);
