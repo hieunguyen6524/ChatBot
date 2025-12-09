@@ -32,6 +32,10 @@ export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === "true";
 
 export const USER_ROLE = import.meta.env.VITE_USER_ROLE || "sale";
 
+// Region configuration for mock data
+// Possible values: Africa, Asia, Europe, Latin America and the Caribbean, Northern America, Oceania
+export const REGION = import.meta.env.VITE_REGION || "Asia";
+
 // Google Drive API configuration
 // Folder ID để upload file (từ Google Drive folder URL)
 // Ví dụ: https://drive.google.com/drive/folders/1Wu2quY7SGIYusK1v7JyizXKMUaHp2l3V

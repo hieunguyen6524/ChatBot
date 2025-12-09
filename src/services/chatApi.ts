@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { Message } from "@/types/chat.type";
-import { N8N_WEBHOOK_URL, WEBHOOK_TIMEOUT, USE_MOCK_DATA } from "@/config/env";
+import { N8N_WEBHOOK_URL, WEBHOOK_TIMEOUT, USE_MOCK_DATA, REGION } from "@/config/env";
 import { getMockResponse, simulateDelay } from "./mockData";
 
 /**
@@ -32,6 +32,7 @@ export const sendMessageToWebhook = async (
       content: message.content,
       userRole: message.userRole || "manager",
       type: message.type || "text",
+      region: REGION,
     };
 
     // Thêm files nếu có - CHỈ GỬI LINK GOOGLE DRIVE, KHÔNG GỬI FILE DATA

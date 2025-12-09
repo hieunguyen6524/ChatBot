@@ -58,6 +58,16 @@ VITE_MAX_FILE_SIZE_MB=10
 # Ví dụ: VITE_WEBHOOK_TIMEOUT=60000 (60 giây)
 # Ví dụ: VITE_WEBHOOK_TIMEOUT=0 (không timeout)
 VITE_WEBHOOK_TIMEOUT=30000
+
+# Region cho mock data (tùy chọn, mặc định: Asia)
+# Các giá trị có thể sử dụng:
+# - Africa
+# - Asia
+# - Europe
+# - Latin America and the Caribbean
+# - Northern America
+# - Oceania
+VITE_REGION=Asia
 ```
 
 ### 2. Cấu hình n8n Webhook
@@ -77,6 +87,7 @@ Webhook sẽ nhận payload dạng JSON:
   "content": "Nội dung message",
   "userRole": "manager",
   "type": "text",
+  "region": "Asia",
   "files": [], // (tùy chọn)
   "data": {} // (tùy chọn, cho file message)
 }
@@ -193,7 +204,8 @@ interface ChartData {
 {
   "content": "Xin chào, tôi muốn xem báo cáo doanh thu",
   "userRole": "manager",
-  "type": "text"
+  "type": "text",
+  "region": "Asia"
 }
 ```
 
@@ -218,6 +230,7 @@ interface ChartData {
   "content": "Đây là file báo cáo",
   "userRole": "manager",
   "type": "text_with_files",
+  "region": "Asia",
   "files": [
     {
       "name": "report.pdf",
@@ -248,6 +261,7 @@ interface ChartData {
   "content": "Đã gửi file: document.pdf",
   "userRole": "manager",
   "type": "file",
+  "region": "Asia",
   "data": {
     "name": "document.pdf",
     "size": 2048000,
@@ -502,7 +516,8 @@ Hệ thống sử dụng `react-hot-toast` để hiển thị thông báo:
 {
   "content": "Xin chào",
   "userRole": "manager",
-  "type": "text"
+  "type": "text",
+  "region": "Asia"
 }
 ```
 
@@ -525,7 +540,8 @@ Hệ thống sử dụng `react-hot-toast` để hiển thị thông báo:
 {
   "content": "Cho tôi xem bảng doanh thu tháng này",
   "userRole": "manager",
-  "type": "text"
+  "type": "text",
+  "region": "Asia"
 }
 ```
 
@@ -555,7 +571,8 @@ Hệ thống sử dụng `react-hot-toast` để hiển thị thông báo:
 {
   "content": "Vẽ biểu đồ doanh thu",
   "userRole": "manager",
-  "type": "text"
+  "type": "text",
+  "region": "Asia"
 }
 ```
 
@@ -589,6 +606,7 @@ Hệ thống sử dụng `react-hot-toast` để hiển thị thông báo:
   "content": "Xin xem xét file báo cáo này",
   "userRole": "manager",
   "type": "text_with_files",
+  "region": "Asia",
   "files": [
     {
       "name": "report.pdf",
