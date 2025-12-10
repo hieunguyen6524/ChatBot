@@ -2,6 +2,7 @@ import type { Message, FileData } from "@/types/chat.type";
 import { motion } from "framer-motion";
 import { File, Image as ImageIcon, Table, BarChart3, ExternalLink } from "lucide-react";
 import { TypingIndicator } from "./TypingIndicator";
+import { LinkifyText } from "@/utils/linkify";
 
 type MiniMessageItem = {
   message: Message;
@@ -30,7 +31,7 @@ function MiniMessageItem({ message, onMaximize }: MiniMessageItem) {
             {/* Text content */}
             {message.content && message.content.trim() && (
               <p className="text-sm whitespace-pre-wrap wrap-break-word leading-relaxed">
-                {message.content}
+                <LinkifyText text={message.content} isUserMessage={isUser} />
               </p>
             )}
             {/* Notification card */}
@@ -70,7 +71,7 @@ function MiniMessageItem({ message, onMaximize }: MiniMessageItem) {
             {/* Text content */}
             {message.content && message.content.trim() && (
               <p className="text-sm whitespace-pre-wrap wrap-break-word leading-relaxed">
-                {message.content}
+                <LinkifyText text={message.content} isUserMessage={isUser} />
               </p>
             )}
             {/* Files count */}
@@ -117,7 +118,7 @@ function MiniMessageItem({ message, onMaximize }: MiniMessageItem) {
         ) : message.content && message.content.trim() !== "" ? (
           /* Text message only */
           <p className="text-sm whitespace-pre-wrap wrap-break-word leading-relaxed">
-            {message.content}
+            <LinkifyText text={message.content} isUserMessage={isUser} />
           </p>
         ) : !isUser && message.status === "sending" && (!message.content || message.content.trim() === "") ? (
           /* Typing indicator - hiển thị khi đang chờ response từ assistant */

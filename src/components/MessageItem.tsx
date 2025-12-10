@@ -6,6 +6,7 @@ import { MessageTable } from "./MessageTable";
 import { MessageChart } from "./MessageChart";
 import { MessageCard } from "./MessageCard";
 import { TypingIndicator } from "./TypingIndicator";
+import { LinkifyText } from "@/utils/linkify";
 
 type MessageItemProps = {
   message: Message;
@@ -50,7 +51,7 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
             }`}
           >
             <p className="whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal">
-              {message.content}
+              <LinkifyText text={message.content} isUserMessage={isUser} />
             </p>
           </div>
         )}
@@ -68,7 +69,7 @@ function MessageItem({ message, onSpeak }: MessageItemProps) {
                 }`}
               >
                 <p className="whitespace-pre-wrap break-words leading-relaxed text-[15px] font-normal">
-                  {message.content}
+                  <LinkifyText text={message.content} isUserMessage={isUser} />
                 </p>
               </div>
             )}
