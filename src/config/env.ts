@@ -35,6 +35,7 @@ export const USER_ROLE = import.meta.env.VITE_USER_ROLE || "sale";
 // Region configuration for mock data
 // Possible values: Africa, Asia, Europe, Latin America and the Caribbean, Northern America, Oceania
 export const REGION = import.meta.env.VITE_REGION || "Asia";
+export const BOSS_ID = import.meta.env.VITE_BOSS_ID || "2";
 
 // Google Drive API configuration
 // Folder ID để upload file (từ Google Drive folder URL)
