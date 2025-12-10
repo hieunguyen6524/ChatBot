@@ -5,10 +5,11 @@ export interface Message {
   content: string;
   timestamp: Date;
   status: "sending" | "success" | "error";
-  type?: "text" | "table" | "chart" | "file" | "text_with_files";
-  data?: any;
-  files?: FileData[]; // Array of files attached to the message
-  userRole?: string; // Role of the user sending the message (e.g., "manager", "employee", etc.)
+  type: "text" | "file" | "text_with_files";
+  userRole?: string;
+  bossId?: string; // Thêm dòng này
+  files?: FileData[];
+  data?: FileData;
 }
 
 export interface TableData {
@@ -28,8 +29,7 @@ export interface FileData {
   name: string;
   size: number;
   type: string;
-  url?: string; // URL for preview/download
-  dataUrl?: string; // Base64 data URL for images (chỉ để preview trong UI)
-  driveLink?: string; // Google Drive shareable link
-  driveFileId?: string; // Google Drive file ID
+  dataUrl?: string;
+  driveLink?: string;
+  driveFileId?: string;
 }

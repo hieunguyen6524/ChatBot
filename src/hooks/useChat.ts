@@ -4,21 +4,14 @@ import { useChatStore } from "@/store/chatStore";
 import { sendMessageToWebhook } from "@/services/chatApi";
 import { uploadFileToGoogleDrive } from "@/services/googleDriveService";
 import { USER_ROLE } from "@/config/env";
+import {BOSS_ID} from "@/config/env";
 import toast from "react-hot-toast";
 
-
-
-// Đọc giới hạn dung lượng file từ env (đơn vị MB), mặc định 10MB
 const MAX_FILE_SIZE_MB = parseFloat(
   import.meta.env.VITE_MAX_FILE_SIZE_MB || "10"
 );
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // Chuyển MB sang bytes
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-/**
- * Kiểm tra kích thước file có vượt quá giới hạn không
- * @param file File cần kiểm tra
- * @returns true nếu file hợp lệ, false nếu vượt quá giới hạn
- */
 const validateFileSize = (
   file: File
 ): { valid: boolean; errorMessage?: string } => {
@@ -50,13 +43,11 @@ export const useChat = () => {
       };
       append(userMsg);
 
-      // Tạo typing indicator message ngay sau khi gửi user message
-      // Dùng timestamp + random để đảm bảo unique ID
       const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const typingMsg: Message = {
         id: typingMsgId,
         role: "assistant",
-        content: "", // Empty content để hiển thị typing indicator
+        content: "",
         timestamp: new Date(),
         status: "sending",
         type: "text",
@@ -64,26 +55,23 @@ export const useChat = () => {
       append(typingMsg);
 
       try {
-        // Cập nhật status của user message thành success
         replaceMessage(userMsg.id, (m) => ({
           ...m,
           status: "success" as const,
         }));
 
-        // Gửi message đến n8n webhook
         const aiMsg = await sendMessageToWebhook({
           role: "user",
           content,
           status: "sending",
           type: "text",
           userRole: USER_ROLE,
+          bossId: BOSS_ID,
         });
 
-        // Thay thế typing message bằng response thật
         if (aiMsg) {
           replaceMessage(typingMsgId, () => aiMsg);
         } else {
-          // Nếu không có response, xóa typing message
           replaceMessage(typingMsgId, (m) => ({
             ...m,
             status: "error" as const,
@@ -91,14 +79,12 @@ export const useChat = () => {
           }));
         }
       } catch (error) {
-        // Nếu có lỗi, cập nhật status của user message thành error
         console.log(error);
         replaceMessage(userMsg.id, (m) => ({
           ...m,
           status: "error" as const,
         }));
 
-        // Thay thế typing message bằng error message
         replaceMessage(typingMsgId, (m) => ({
           ...m,
           status: "error" as const,
@@ -111,10 +97,8 @@ export const useChat = () => {
 
   const sendFile = useCallback(
     async (file: File) => {
-      // Kiểm tra kích thước file
       const validation = validateFileSize(file);
       if (!validation.valid) {
-        // Hiển thị error message
         const errorMsg: Message = {
           id: Date.now().toString(),
           role: "assistant",
@@ -127,7 +111,6 @@ export const useChat = () => {
         return;
       }
 
-      // Upload file lên Google Drive trước
       let driveLink: string | undefined;
       let driveFileId: string | undefined;
 
@@ -147,7 +130,6 @@ export const useChat = () => {
         return;
       }
 
-      // Convert file to base64 for preview (chỉ để hiển thị trong UI)
       const reader = new FileReader();
       reader.onload = async (e) => {
         const dataUrl = e.target?.result as string;
@@ -156,9 +138,9 @@ export const useChat = () => {
           name: file.name,
           size: file.size,
           type: file.type,
-          dataUrl: file.type.startsWith("image/") ? dataUrl : undefined, // Chỉ để preview
-          driveLink: driveLink, // Link Google Drive
-          driveFileId: driveFileId, // File ID trên Google Drive
+          dataUrl: file.type.startsWith("image/") ? dataUrl : undefined,
+          driveLink: driveLink,
+          driveFileId: driveFileId,
         };
 
         const userMsg: Message = {
@@ -174,7 +156,6 @@ export const useChat = () => {
 
         append(userMsg);
 
-        // Tạo typing indicator message ngay sau khi gửi user message
         const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const typingMsg: Message = {
           id: typingMsgId,
@@ -187,13 +168,11 @@ export const useChat = () => {
         append(typingMsg);
 
         try {
-          // Cập nhật status của user message thành success
           replaceMessage(userMsg.id, (m) => ({
             ...m,
             status: "success" as const,
           }));
 
-          // Gửi file message đến n8n webhook - CHỈ GỬI LINK GOOGLE DRIVE
           const aiMsg = await sendMessageToWebhook({
             role: "user",
             content: `Đã gửi file: ${file.name}`,
@@ -205,12 +184,11 @@ export const useChat = () => {
               type: file.type,
               driveLink: driveLink,
               driveFileId: driveFileId,
-              // KHÔNG gửi dataUrl
             },
             userRole: USER_ROLE,
+            bossId: BOSS_ID
           });
 
-          // Thay thế typing message bằng response thật
           if (aiMsg) {
             replaceMessage(typingMsgId, () => aiMsg);
           } else {
@@ -222,13 +200,11 @@ export const useChat = () => {
           }
         } catch (error) {
           console.log(error);
-          // Nếu có lỗi, cập nhật status của user message thành error
           replaceMessage(userMsg.id, (m) => ({
             ...m,
             status: "error" as const,
           }));
 
-          // Thêm error message từ assistant
           const errorMsg: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
@@ -262,7 +238,6 @@ export const useChat = () => {
       if (file.type.startsWith("image/")) {
         reader.readAsDataURL(file);
       } else {
-        // For non-image files, create message without preview
         const fileData: FileData = {
           name: file.name,
           size: file.size,
@@ -282,7 +257,6 @@ export const useChat = () => {
 
         append(userMsg);
 
-        // Tạo typing indicator message
         const typingMsgId = (Date.now() + 1).toString();
         const typingMsg: Message = {
           id: typingMsgId,
@@ -296,13 +270,11 @@ export const useChat = () => {
 
         (async () => {
           try {
-            // Cập nhật status của user message thành success
             replaceMessage(userMsg.id, (m) => ({
               ...m,
               status: "success" as const,
             }));
 
-            // Gửi file message đến n8n webhook
             const aiMsg = await sendMessageToWebhook({
               role: "user",
               content: `Đã gửi file: ${file.name}`,
@@ -310,9 +282,9 @@ export const useChat = () => {
               type: "file",
               data: fileData,
               userRole: USER_ROLE,
+              bossId: BOSS_ID,
             });
 
-            // Thay thế typing message bằng response thật
             if (aiMsg) {
               replaceMessage(typingMsgId, () => aiMsg);
             } else {
@@ -324,13 +296,11 @@ export const useChat = () => {
             }
           } catch (error) {
             console.log(error);
-            // Nếu có lỗi, cập nhật status của user message thành error
             replaceMessage(userMsg.id, (m) => ({
               ...m,
               status: "error" as const,
             }));
 
-            // Thay thế typing message bằng error message
             replaceMessage(typingMsgId, (m) => ({
               ...m,
               status: "error" as const,
@@ -345,7 +315,6 @@ export const useChat = () => {
 
   const sendMessageWithFiles = useCallback(
     async (content: string, files: File[]) => {
-      // Kiểm tra kích thước của tất cả files
       const invalidFiles: { file: File; error: string }[] = [];
       files.forEach((file) => {
         const validation = validateFileSize(file);
@@ -354,7 +323,6 @@ export const useChat = () => {
         }
       });
 
-      // Nếu có file vượt quá giới hạn, hiển thị lỗi và dừng
       if (invalidFiles.length > 0) {
         const errorMessages = invalidFiles.map((item) => item.error).join("\n");
         const errorMsg: Message = {
@@ -369,12 +337,10 @@ export const useChat = () => {
         return;
       }
 
-      // Upload tất cả files lên Google Drive và process để get FileData
       const processFiles = async (): Promise<FileData[]> => {
         toast.loading(`Đang upload ${files.length} file lên Google Drive...`, { id: "upload-files" });
         
         const fileDataPromises = files.map(async (file): Promise<FileData> => {
-          // Upload file lên Google Drive
           let driveLink: string | undefined;
           let driveFileId: string | undefined;
 
@@ -387,7 +353,6 @@ export const useChat = () => {
             throw error;
           }
 
-          // Process preview cho images (chỉ để hiển thị trong UI)
           if (file.type.startsWith("image/")) {
             return new Promise((resolve) => {
               const reader = new FileReader();
@@ -397,7 +362,7 @@ export const useChat = () => {
                   name: file.name,
                   size: file.size,
                   type: file.type,
-                  dataUrl, // Chỉ để preview
+                  dataUrl,
                   driveLink: driveLink,
                   driveFileId: driveFileId,
                 });
@@ -440,13 +405,11 @@ export const useChat = () => {
 
       const fileDataArray = await processFiles();
 
-      // Determine message type and content
       const hasText = content.trim().length > 0;
       const hasFiles = fileDataArray.length > 0;
       const messageType =
         hasText && hasFiles ? "text_with_files" : hasFiles ? "file" : "text";
 
-      // Build content message
       let messageContent = content.trim();
       if (!messageContent && hasFiles) {
         messageContent = `Đã gửi ${fileDataArray.length} file${
@@ -467,7 +430,6 @@ export const useChat = () => {
 
       append(userMsg);
 
-      // Tạo typing indicator message ngay sau khi gửi user message
       const typingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const typingMsg: Message = {
         id: typingMsgId,
@@ -480,13 +442,11 @@ export const useChat = () => {
       append(typingMsg);
 
       try {
-        // Cập nhật status của user message thành success
         replaceMessage(userMsg.id, (m) => ({
           ...m,
           status: "success" as const,
         }));
 
-        // Gửi message với files đến n8n webhook - CHỈ GỬI LINK GOOGLE DRIVE
         const filesForWebhook = hasFiles
           ? fileDataArray.map((f) => ({
               name: f.name,
@@ -494,7 +454,6 @@ export const useChat = () => {
               type: f.type,
               driveLink: f.driveLink,
               driveFileId: f.driveFileId,
-              // KHÔNG gửi dataUrl
             }))
           : undefined;
 
@@ -505,9 +464,9 @@ export const useChat = () => {
           type: messageType,
           files: filesForWebhook,
           userRole: USER_ROLE,
+          bossId: BOSS_ID,
         });
 
-        // Thay thế typing message bằng response thật
         if (aiMsg) {
           replaceMessage(typingMsgId, () => aiMsg);
         } else {
@@ -519,13 +478,11 @@ export const useChat = () => {
         }
       } catch (error) {
         console.log(error);
-        // Nếu có lỗi, cập nhật status của user message thành error
         replaceMessage(userMsg.id, (m) => ({
           ...m,
           status: "error" as const,
         }));
 
-        // Thay thế typing message bằng error message
         replaceMessage(typingMsgId, (m) => ({
           ...m,
           status: "error" as const,

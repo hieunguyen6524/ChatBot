@@ -33,6 +33,7 @@ export const sendMessageToWebhook = async (
       userRole: message.userRole || "manager",
       type: message.type || "text",
       region: REGION,
+      bossId: message.bossId || "2",
     };
 
     // Thêm files nếu có - CHỈ GỬI LINK GOOGLE DRIVE, KHÔNG GỬI FILE DATA
